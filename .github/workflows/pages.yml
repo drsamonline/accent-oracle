@@ -1,8 +1,10 @@
 name: pages
 
+# Pages is not enabled on this repository yet, and the GitHub App in use cannot
+# create the site (create-pages returns 403). Turn Pages on once — Settings →
+# Pages → Source: GitHub Actions — then run this workflow by hand, or switch the
+# source to "Deploy from a branch: main /docs" and drop this file entirely.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
