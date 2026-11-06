@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # The engine lives inside docs/play/index.html; the test lifts it out and
+      # runs it against synthesised voices with known pitch and formants.
+      - name: Run the engine tests
+        run: node test/engine.test.js

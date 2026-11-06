@@ -2,7 +2,8 @@
 
 **Source of truth:** `knowledge/docs/app_ideas_categorized.md`, section *C11 · Fun apps*,
 entry *Accent Oracle — guess where you're from* (rarity: Rare, size: S).
-**Status:** specified, not built.
+**Status:** built — 2026-11-07. The app is `docs/play/index.html`; the twelve accent cards and the
+calibration path are in `ACCENTS.md`; the engine's tests are `test/engine.test.js`.
 
 ## The brief, as recorded
 
@@ -34,9 +35,36 @@ entry *Accent Oracle — guess where you're from* (rarity: Rare, size: S).
 - Any claim about nationality, ethnicity or immigration status.
 - Sending audio anywhere, ever.
 
-## Open questions for the build
+## Open questions for the build — answered
 
-- Which on-device model, and how big a download is acceptable for a toy.
-- Whether the app needs a fixed sentence to read (comparable samples) or free speech
-  (natural, but harder to classify).
-- How to present a wrong guess so it is funny rather than deflating.
+**Which on-device model, and how big a download is acceptable for a toy.**
+None. A quantised accent classifier is 20–100 MB, which is not a single self-contained page and
+is a bad first impression for something meant to be a party trick. The app instead measures eight
+things from the audio with hand-written signal processing — autocorrelation pitch, cepstral
+formants, envelope syllables, Bark vowel spread — and scores them against twelve profiles. Zero
+download, works offline, no build step. The profiles are hand-set priors rather than measured
+centroids, and both the app and `ACCENTS.md` say so; replacing them is a documented one-file job
+and the honest path to real accuracy.
+
+**Whether the app needs a fixed sentence to read (comparable samples) or free speech.**
+Both, leaning on the fixed sentence. The home screen shows one sentence and asks for it, because
+comparable samples are the only way eight numbers mean anything across speakers. Nothing checks
+what you actually read, and a dropped clip is measured the same way — so free speech works, it is
+just noisier.
+
+**How to present a wrong guess so it is funny rather than deflating.**
+Three things, all on the result screen rather than in a footer. The band: "too close to call" is a
+result the app can return, so it is not always claiming a winner. The runners-up: the second and
+third profiles are shown with their fit, so a near-miss is visible as a near-miss. And the card:
+every outcome, right or wrong, hands over something true about the accent it named — where it is
+heard, what it is confused with — so the round was worth playing even when the guess was wrong.
+
+## What the build added that the brief did not ask for
+
+- A **clip button**. Microphones are refused more often than anyone expects, and a page that can
+  only listen is a page half the visitors cannot use. Files are decoded in the page like
+  everything else.
+- A **`Content-Security-Policy` with `connect-src 'none'`**. The brief asks for on-device only;
+  a policy the browser enforces makes that checkable instead of promised.
+- **"What it measured"**, behind a disclosure on the result screen. Eight numbers, so the guess
+  can be argued with rather than just received.

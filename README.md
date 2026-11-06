@@ -1,41 +1,119 @@
 # Accent Oracle
 
-[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)](LICENSE)
+<p>
+  <a href="https://drsamonline.github.io/accent-oracle/"><img alt="live: online" src="docs/assets/badge-live.svg"></a>
+  <a href="https://github.com/drsamonline/accent-oracle/actions/workflows/test.yml"><img alt="tests: 22 passing" src="docs/assets/badge-tests.svg"></a>
+  <img alt="build: green" src="docs/assets/badge-build.svg">
+  <a href="LICENSE"><img alt="licence: PolyForm NC 1.0.0" src="docs/assets/badge-licence.svg"></a>
+  <img alt="offline: no network" src="docs/assets/badge-offline.svg">
+  <img alt="deps: 0 runtime" src="docs/assets/badge-deps.svg">
+</p>
 
-**It listens to a short spoken sample and guesses your accent and region — on device.**
+**It listens to four seconds of speech and guesses which accent it heard — on device, with a band on how sure it is.**
 
-> **Status: specified, not built.** This repository was created from the estate's app-idea
-> list and, until now, was empty: the idea had a spec but the repository carried none of it.
-> Nothing here runs yet. The spec is in [SPEC.md](SPEC.md).
+**[Open the app →](https://drsamonline.github.io/accent-oracle/play/)** · [Landing page](https://drsamonline.github.io/accent-oracle/) · [The rule](#the-rule) · [Support](#support)
 
-## What it is meant to be
+<!-- shot:start -->
 
-A small, offline, accountless app. You speak for a few seconds; it says what it thinks your
-accent is and where that accent is usually from. Everything happens on the device — no
-recording leaves it, because there is nothing to send it to.
+![The Accent Oracle showing a guess](docs/assets/app-desktop.png)
 
-## How it must be framed
+<!-- shot:end -->
 
-The idea list is explicit about this, and it is the first requirement rather than a
+One HTML file, no build step, no dependencies, no model download — which is also why it works
+with the network switched off. The page carries a `Content-Security-Policy` with
+`connect-src 'none'`, so a fetch or a WebSocket is refused by the browser itself rather than by
+a promise in the footer. The recording is decoded into eight numbers and dropped.
+
+## What it does
+
+It measures, then compares. Pitch is found by autocorrelation, the first two formants by
+cepstral smoothing of the spectrum, syllables by peaks in a smoothed energy envelope, and the
+vowel space by the spread of formant values in Bark. Those eight numbers are scored against
+twelve accent profiles, and the result carries a band rather than a percentage of certainty.
+
+| | |
+|---|---|
+| accents in the set | **12** |
+| measurements per sample | **8** |
+| runtime dependencies | **0** |
+| network requests at runtime | **0** |
+| engine tests | **22** |
+
+The result screen names an accent and the region that accent is usually heard in, shows the
+runners-up, and hands you a card: where it is heard, what it is commonly confused with, and one
+thing worth knowing. There is a challenge mode where the room records a round, the oracle
+guesses out loud, and the room settles the score.
+
+### The honest caveat
+
+The eight measurements are real. The **profiles they are compared against are hand-set starting
+values**, not values measured from a labelled corpus — they are ordered the way the literature
+would lead you to expect, but they are not measurements, and the app says so on screen.
+[`ACCENTS.md`](ACCENTS.md) has the twelve cards and the exact procedure for replacing the
+priors with real centroids from Common Voice or VoxCommunis.
+
+Until that pass happens, this is a game with a real microphone and honest measurements behind
+it. That is what the [spec](SPEC.md) asked for.
+
+## The rule
+
+The idea this was built from said it in one line, and it is the first requirement rather than a
 footnote:
 
 > Frame it as a fun game, never as a judgment about a person.
 
-So: it guesses an accent, not a nationality; it never claims to place *you*, only the
-speech in that sample; and it says so on screen. A wrong guess has to be cheap and funny,
-not embarrassing — which is a design constraint on the result screen, not a disclaimer
-tucked in a footer.
+So the app names an accent, never a nationality; it reports on the speech in that one sample,
+never on you; and it says which of those it is not doing, on the result screen, every time. A
+wrong guess has to be cheap and funny, which is a design constraint on the result screen rather
+than a disclaimer in a footer.
 
-## Planned shape
+## Run it
 
-- **The oracle** — record a few seconds, get a guess with a confidence band rather than a
-  single confident answer.
-- **"Learn more about this accent"** — a card explaining the accent it guessed: where it is
-  heard, what it is often confused with.
-- **Challenge mode** — someone reads a sentence, the app guesses, the room argues about it.
+```bash
+node test/engine.test.js      # 22 passing, 0 failing
+python3 -m http.server 8000   # then open http://localhost:8000/docs/play/
+```
 
-## Built with
+The app is a single file, so `docs/play/index.html` also opens directly from disk. A microphone
+needs a secure context, so `http://localhost` works and `file://` may not — the clip button
+covers that case, and it decodes the file in the page like everything else.
 
-Nothing yet. When it is built it follows the estate's conventions: a single self-contained
-page under `docs/play/`, a landing page at `docs/index.html`, offline-first, no accounts, no
-telemetry, PolyForm Noncommercial.
+## Platforms
+
+Windows, Linux and Android. There is no macOS or iOS build — the app is a web page, and the same
+page is the product on all three.
+
+## Layout
+
+```
+docs/index.html            the landing page
+docs/play/index.html       the app — engine, interface, cards, support panel
+docs/play/icon.svg         the mark
+docs/assets/               screenshots, generated badges, the UPI QR, the portrait
+ACCENTS.md                 the closed set of twelve, the card copy, the calibration path
+SPEC.md                    where this came from and what it must not do
+test/engine.test.js        the engine, lifted out of the page and run in Node
+tools/                     the estate's presentation checks
+```
+
+## Support
+
+<img src="docs/assets/support-portrait.jpg" width="72" height="72" alt="Dr. Sohil Momin" align="left" style="border-radius:50%;margin-right:1rem">
+
+Free, offline, accountless — and staying that way. If it earned its keep:
+
+| | |
+|---|---|
+| UPI (India) | `drsohilboi@ybl` — payee Dr. Sohil Momin, open amount, or scan [the QR](docs/assets/upi-qr.svg) |
+| Ko-fi | [ko-fi.com/matneo](https://ko-fi.com/matneo) |
+| PayPal | [paypal.me/drsohilmomin](https://paypal.me/drsohilmomin?locale.x=en_GB&country.x=IN) |
+| My books | [Amazon author store](https://www.amazon.com/stores/author/B08ZT331LY/allbooks?ccs_id=aed72b9f-71d9-41dc-adee-e9368a317acc) |
+| More apps | [drsamonline.github.io](https://drsamonline.github.io/) |
+| Email | [sohilmomin2000@gmail.com](mailto:sohilmomin2000@gmail.com) |
+
+Nothing is gated behind it: no accounts, no tracking, no network requests.
+
+## Licence
+
+PolyForm Noncommercial 1.0.0 — see `LICENSE`. It is source-available rather than OSI open
+source: read it, run it, change it, use it for anything noncommercial.

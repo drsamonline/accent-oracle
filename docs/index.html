@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accent Oracle — a game about how you sound</title>
+<meta name="description" content="Speak for four seconds and it guesses which accent it heard, with a band on how sure it is. Offline, on device, no account. A game, not a judgment about a person.">
+<link rel="canonical" href="https://drsamonline.github.io/accent-oracle/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Accent Oracle">
+<meta property="og:title" content="Accent Oracle — a game about how you sound">
+<meta property="og:description" content="Four seconds of speech, measured in your browser. It names an accent and says how sure it is, which is usually not very.">
+<meta property="og:url" content="https://drsamonline.github.io/accent-oracle/">
+<meta property="og:image" content="https://drsamonline.github.io/accent-oracle/assets/app-desktop.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://drsamonline.github.io/accent-oracle/assets/app-desktop.png">
+<meta name="theme-color" content="#edf1f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08131a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="play/icon.svg" type="image/svg+xml">
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('theme:accent-oracle');
+      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = saved || (dark ? 'dark' : 'light');
+    } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  })();
+</script>
+<style>
+  :root{
+    --ink:#0d1a20; --paper:#edf1f3; --paper-2:#fbfdfd; --muted:#5a6b74; --line:#cbd7dc;
+    --accent:#0f766e; --accent-2:#b45309; --frame:#dfe7ea;
+    --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --serif:ui-serif,Georgia,"Times New Roman",serif;
+  }
+  [data-theme="dark"]{
+    --ink:#e6f0f3; --paper:#08131a; --paper-2:#0f1f27; --muted:#8ba3ad; --line:#1d3540;
+    --accent:#4fd1c5; --accent-2:#f0a35e; --frame:#050d12;
+  }
+  *{box-sizing:border-box}
+  html{color-scheme:light dark}
+  body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.65 var(--sans);
+       -webkit-font-smoothing:antialiased}
+  .band{height:6px;background:linear-gradient(90deg,var(--accent),var(--paper) 45%,var(--accent-2))}
+  .wrap{max-width:64rem;margin:0 auto;padding:0 1.4rem}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;
+          padding:1.2rem 1.4rem .4rem;max-width:64rem;margin:0 auto;
+          font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase}
+  .topbar a{color:var(--muted);text-decoration:none}
+  .topbar a:hover,.topbar a:focus-visible{color:var(--ink)}
+  .theme{font:inherit;font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;
+         background:transparent;color:var(--muted);border:1px solid var(--line);
+         border-radius:.4rem;padding:.3rem .6rem;cursor:pointer}
+  .theme:hover,.theme:focus-visible{color:var(--ink);border-color:var(--ink)}
+  .mark{display:block;margin:0 0 .9rem;color:var(--muted)}
+  header .wrap{padding:2.4rem 1.4rem 2.2rem}
+  .eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
+           color:var(--accent);margin:0 0 .7rem}
+  h1{font-size:clamp(2.5rem,6.4vw,4.4rem);line-height:.99;letter-spacing:-.03em;margin:0 0 1rem;font-weight:640}
+  h1 span{font-weight:400;font-style:italic;color:var(--muted);display:block;font-size:.62em;
+          letter-spacing:-.01em;margin-top:.35rem;font-family:var(--serif)}
+  .lede{font-size:1.14rem;max-width:36rem;color:var(--ink);opacity:.88}
+  .cta{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.5rem 0 1.1rem}
+  .btn{font-family:var(--sans);text-decoration:none;padding:.72rem 1.1rem;border-radius:.55rem;
+       border:1px solid var(--line);background:var(--paper-2);color:var(--ink);font-size:.95rem}
+  .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .btn:hover,.btn:focus-visible{border-color:var(--accent);color:var(--accent)}
+  .btn.primary:hover,.btn.primary:focus-visible{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  [data-theme="dark"] .btn.primary{color:#04191c}
+  .badges{display:flex;gap:.3rem;flex-wrap:wrap;margin:0 0 1.6rem}
+  .badges img{height:20px}
+  /* the signal strip: the one strong idea, carried from the hero */
+  .signal{display:flex;align-items:center;gap:2px;height:64px;margin:0 0 1.8rem;
+          border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:.4rem 0}
+  .signal i{flex:1;background:var(--accent);border-radius:1px;opacity:.85;min-height:3px}
+  .signal i:nth-child(3n){background:var(--accent-2);opacity:.8}
+  figure.shot{margin:0;border:1px solid var(--line);border-radius:.9rem;overflow:hidden;background:var(--paper-2)}
+  figure.shot img{width:100%;display:block}
+  figcaption{font-family:var(--mono);font-size:.74rem;letter-spacing:.04em;color:var(--muted);
+             padding:.7rem 1rem;border-top:1px solid var(--line)}
+  section{padding:3rem 0;border-top:1px solid var(--line)}
+  h2{font-size:1.55rem;letter-spacing:-.015em;margin:0 0 .4rem}
+  .sub{color:var(--muted);margin:0 0 1.4rem;max-width:38rem}
+  .cards{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}
+  .card{background:var(--paper-2);border:1px solid var(--line);border-radius:.8rem;padding:1.1rem}
+  .card h3{margin:.1rem 0 .4rem;font-size:1.02rem}
+  .card p{margin:0;font-size:.94rem;color:var(--muted)}
+  .card .n{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;color:var(--accent)}
+  .refuse{list-style:none;padding:0;margin:0;display:grid;gap:.7rem}
+  .refuse li{padding-left:1.6rem;position:relative;max-width:44rem}
+  .refuse li::before{content:"×";position:absolute;left:.2rem;top:-.1rem;color:var(--accent-2);
+                     font-size:1.1rem;line-height:1.6}
+  .guided{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1rem}
+  .guided button{font:inherit;font-family:var(--mono);font-size:.76rem;letter-spacing:.04em;
+                 background:var(--paper-2);color:var(--ink);border:1px solid var(--line);
+                 border-radius:2rem;padding:.45rem .9rem;cursor:pointer}
+  .guided button:hover,.guided button:focus-visible{border-color:var(--accent);color:var(--accent)}
+  .frame{position:relative;border:1px solid var(--line);border-radius:.9rem;overflow:hidden;
+         background:var(--frame);aspect-ratio:16/10}
+  .frame .poster,.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .frame .poster{object-fit:cover;object-position:top center}
+  .frame iframe{opacity:0;transition:opacity .25s ease}
+  .frame.live .poster{display:none}
+  .frame.live iframe{opacity:1}
+  code{font-family:var(--mono);font-size:.88em;background:var(--paper-2);border:1px solid var(--line);
+       border-radius:.25rem;padding:.05rem .3rem}
+  .table{width:100%;border-collapse:collapse;margin:.4rem 0 0}
+  .table th,.table td{text-align:left;padding:.55rem 0;border-bottom:1px solid var(--line);
+                      font-size:.92rem;vertical-align:top}
+  .table th{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+            color:var(--muted);font-weight:600}
+  footer{padding:0 0 4rem;color:var(--muted);font-size:.9rem}
+  footer a{color:var(--muted)}
+  .platforms{font-family:var(--mono);font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;
+             margin:2rem 0 .5rem}
+  .stamp{font-family:var(--mono);font-size:.72rem;opacity:.75}
+  @media (prefers-reduced-motion:reduce){.frame iframe{transition:none}}
+</style>
+</head>
+<body>
+<div class="band"></div>
+<div class="topbar">
+  <a href="https://drsamonline.github.io/">← the estate</a>
+  <button class="theme" type="button" id="theme-toggle" aria-pressed="false">Dark</button>
+</div>
+<header><div class="wrap">
+  <svg class="mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" focusable="false">
+    <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".5"/>
+    <circle cx="24" cy="24" r="14.5" fill="none" stroke="currentColor" stroke-width=".9" opacity=".22"/>
+    <g fill="var(--accent)">
+      <rect x="14.5" y="20.6" width="2.4" height="6.8" rx="1.2"/>
+      <rect x="19.5" y="15.4" width="2.4" height="17.2" rx="1.2"/>
+      <rect x="24.5" y="11.4" width="2.4" height="25.2" rx="1.2"/>
+      <rect x="29.5" y="17.4" width="2.4" height="13.2" rx="1.2"/>
+    </g>
+    <circle cx="35.4" cy="24" r="2" fill="var(--accent-2)"/>
+  </svg>
+  <p class="eyebrow">offline · on device · no account</p>
+  <h1>Accent Oracle<span>a game about how you sound, not who you are</span></h1>
+  <p class="lede">Four seconds of speech, measured in the browser. It names an accent and the
+    region that accent is usually heard in — and it tells you how sure it is, which is usually
+    not very. Nothing is uploaded, because there is nowhere to upload it to.</p>
+  <div class="cta">
+    <a class="btn primary" href="play/">Open the app →</a>
+    <a class="btn" href="https://github.com/drsamonline/accent-oracle">Read the source</a>
+    <a class="btn" href="#support">Support it</a>
+  </div>
+  <div class="badges">
+    <img alt="live: online" src="assets/badge-live.svg">
+    <img alt="tests: 22 passing" src="assets/badge-tests.svg">
+    <img alt="build: green" src="assets/badge-build.svg">
+    <img alt="licence: PolyForm NC 1.0.0" src="assets/badge-licence.svg">
+    <img alt="offline: no network" src="assets/badge-offline.svg">
+    <img alt="deps: 0 runtime" src="assets/badge-deps.svg">
+  </div>
+  <div class="signal" id="signal" aria-hidden="true"></div>
+  <figure class="shot">
+    <img src="assets/app-desktop.png" alt="The Accent Oracle app: a record button above a waveform scope, the sentence to read, and the result screen behind it showing an accent name with a confidence band.">
+    <figcaption>the oracle, having just heard four seconds of someone reading a sentence</figcaption>
+  </figure>
+</div></header>
+
+<main>
+  <section id="demo"><div class="wrap">
+    <h2>Try it, right here</h2>
+    <p class="sub">The frame below is the app itself, not a picture of it. It needs a microphone —
+      or drop in a clip. No microphone in the frame? Use the buttons to see populated screens.</p>
+    <div class="guided">
+      <button type="button" data-route="#/">Start</button>
+      <button type="button" data-route="#/demo/us-south">A clear guess</button>
+      <button type="button" data-route="#/demo/close">Too close to call</button>
+      <button type="button" data-route="#/challenge">Challenge mode</button>
+    </div>
+    <div class="frame" id="frame">
+      <img class="poster" src="assets/app-desktop.png" alt="The app, as a still">
+      <iframe id="demo-frame" title="Accent Oracle — live demo" loading="lazy"
+              data-src="play/" src="about:blank"></iframe>
+    </div>
+    <p><small>The frame is the app itself. <a href="play/">Open it full size →</a></small></p>
+  </div></section>
+
+  <section><div class="wrap">
+    <h2>What it does</h2>
+    <p class="sub">Eight measurements, taken from the audio in your browser. Then a comparison
+      against twelve accent profiles, and a band on how far ahead the winner is.</p>
+    <div class="cards">
+      <div class="card"><p class="n">01</p><h3>It measures, not guesses</h3>
+        <p>Median pitch, pitch movement, syllable rate, voiced share, two formants, vowel spread
+          and voice quality. All of it computed here, from the samples themselves.</p></div>
+      <div class="card"><p class="n">02</p><h3>It says how sure it is</h3>
+        <p>A single confident answer is how an app gets to be wrong in public. The result carries
+          a band, and when the top two profiles are tied it says so instead of picking.</p></div>
+      <div class="card"><p class="n">03</p><h3>Every accent has a card</h3>
+        <p>Where it is heard, what it is commonly confused with, and one thing worth knowing.
+          This is the part that turns a party trick into something you keep.</p></div>
+    </div>
+  </div></section>
+
+  <section><div class="wrap">
+    <h2>What it refuses to do</h2>
+    <ul class="refuse">
+      <li>Name a nationality, an ethnicity or an identity. It names an accent — something you
+        learned from the people around you, which travels when you do.</li>
+      <li>Claim to place <em>you</em>. It reports on the speech in that one sample, and says so
+        on the result screen.</li>
+      <li>Send your audio anywhere. The page carries a <code>Content-Security-Policy</code> that
+        forbids every network connection, so a fetch would be blocked by the browser itself.</li>
+      <li>Keep the recording. It is decoded into eight numbers and dropped — the sample is
+        discarded the moment the guess is made.</li>
+      <li>Pretend the numbers are settled science. The profiles are hand-set starting values,
+        not values measured from a labelled corpus, and the app says so where you can see it.</li>
+    </ul>
+  </div></section>
+
+  <section><div class="wrap">
+    <h2>How it is built</h2>
+    <p class="sub">One HTML file. No build step, no dependencies, no model download — which is
+      also why it works with the network switched off.</p>
+    <table class="table">
+      <thead><tr><th>piece</th><th>what it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>docs/play/index.html</code></td><td>The whole app: engine, interface, cards, support panel.</td></tr>
+        <tr><td>engine</td><td>Frames the audio, finds pitch by autocorrelation, formants by cepstral smoothing, syllables by envelope peaks, then scores twelve profiles.</td></tr>
+        <tr><td><code>ACCENTS.md</code></td><td>The closed set of twelve, the card copy, and what it would take to replace the hand-set profiles with measured ones.</td></tr>
+        <tr><td><code>test/engine.test.js</code></td><td>Lifts the engine out of the page and runs it in Node against synthesised voices with known pitch and formants.</td></tr>
+      </tbody>
+    </table>
+  </div></section>
+</main>
+
+<footer><div class="wrap">
+<!-- support:block:start -->
+<style>
+  .support{--s-ink:var(--ink,#14110e);--s-paper:var(--paper,#f7f2e9);--s-card:var(--paper-2,#fffdf8);
+           --s-muted:var(--muted,#6b6157);--s-line:var(--line,#e2d8c8);--s-accent:var(--accent,#2f6f8f);
+           font-family:var(--sans,ui-sans-serif,-apple-system,"Segoe UI",sans-serif);
+           color:var(--s-ink);padding:2.6rem 0 1rem;border-top:1px solid var(--s-line)}
+  .support-head{display:flex;gap:1rem;align-items:flex-start;margin:0 0 1.4rem}
+  .support-portrait{width:72px;height:72px;flex:0 0 72px;border-radius:50%;object-fit:cover;
+                    border:1px solid var(--s-line);background:var(--s-card)}
+  .support h2{font-size:1.15rem;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .5rem;color:var(--s-muted)}
+  .support .support-lede{margin:0;max-width:44rem;color:var(--s-muted);font-size:.95rem}
+  .support-grid{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));align-items:stretch}
+  .support-card{background:var(--s-card);border:1px solid var(--s-line);border-radius:.7rem;padding:.9rem 1rem;
+                display:flex;flex-direction:column;gap:.35rem}
+  .support-card h3{margin:0;font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--s-muted);font-weight:600}
+  .support-card p{margin:0;font-size:.92rem;line-height:1.5}
+  .support-card a{color:var(--s-accent);text-decoration:none;border-bottom:1px solid transparent;word-break:break-word}
+  .support-card a:hover,.support-card a:focus-visible{border-bottom-color:currentColor}
+  .support-id{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .support-id code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95rem;
+                   background:transparent;border:1px dashed var(--s-line);border-radius:.35rem;padding:.15rem .45rem}
+  .support-copy{font:inherit;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;
+                background:transparent;color:var(--s-muted);border:1px solid var(--s-line);
+                border-radius:.35rem;padding:.2rem .5rem;cursor:pointer}
+  .support-copy:hover,.support-copy:focus-visible{color:var(--s-ink);border-color:var(--s-ink)}
+  .support-card.upi{grid-row:span 1}
+  .support-qr{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;margin-top:.2rem}
+  .support-qr img{width:132px;height:132px;display:block;background:#fff;padding:.35rem;
+                  border:1px solid var(--s-line);border-radius:.4rem;image-rendering:pixelated}
+  .support-qr small{display:block;color:var(--s-muted);font-size:.8rem;max-width:11rem;line-height:1.4}
+  .support-foot{margin:1.2rem 0 0;font-size:.8rem;color:var(--s-muted)}
+  @media (prefers-reduced-motion:no-preference){.support-card{transition:border-color .15s ease}}
+  .support-card:target,.support-card:focus-within{border-color:var(--s-accent)}
+</style>
+
+<section class="support" id="support" aria-labelledby="support-h" data-support>
+  <div class="support-head">
+    <img class="support-portrait" src="assets/support-portrait.jpg" width="72" height="72"
+         alt="Dr. Sohil Momin" loading="lazy" decoding="async">
+    <div>
+      <h2 id="support-h">Support this work</h2>
+      <p class="support-lede">Everything here is free, offline and accountless. If it earned its keep,
+        there are a few ways to say so — pick whichever is easiest where you are.</p>
+    </div>
+  </div>
+  <div class="support-grid">
+
+    <div class="support-card upi">
+      <h3>UPI · India</h3>
+      <div class="support-id">
+        <code id="upi-vpa">drsohilboi@ybl</code>
+        <button class="support-copy" type="button" data-copy="drsohilboi@ybl"
+                aria-label="Copy the UPI ID drsohilboi@ybl">Copy</button>
+      </div>
+      <p><a href="upi://pay?pa=drsohilboi%40ybl&amp;pn=Dr.%20Sohil%20Momin&amp;cu=INR">Open in a UPI app →</a></p>
+      <div class="support-qr">
+        <img src="assets/upi-qr.svg" width="132" height="132"
+             alt="QR code for the UPI ID drsohilboi@ybl, payee Dr. Sohil Momin">
+        <small>Scan with any UPI app. Payee: Dr. Sohil Momin.</small>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <h3>Ko-fi</h3>
+      <p>One-off tip, no account needed.<br>
+        <a href="https://ko-fi.com/matneo" target="_blank" rel="noopener noreferrer">ko-fi.com/matneo →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>PayPal</h3>
+      <p>For outside India, or a card instead of UPI.<br>
+        <a href="https://paypal.me/drsohilmomin?locale.x=en_GB&amp;country.x=IN"
+           target="_blank" rel="noopener noreferrer">paypal.me/drsohilmomin →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>My books</h3>
+      <p>The Amazon author store — every title, one shelf.<br>
+        <a href="https://www.amazon.com/stores/author/B08ZT331LY/allbooks?ccs_id=aed72b9f-71d9-41dc-adee-e9368a317acc"
+           target="_blank" rel="noopener noreferrer">Amazon bookstore →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>More apps</h3>
+      <p>The rest of the estate, all of it offline-first.<br>
+        <a href="https://drsamonline.github.io/" target="_blank" rel="noopener noreferrer">drsamonline.github.io →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>Say hello</h3>
+      <p>Bugs, corrections, requests.<br>
+        <a href="mailto:sohilmomin2000@gmail.com">sohilmomin2000@gmail.com →</a></p>
+    </div>
+
+  </div>
+  <p class="support-foot">No accounts, no tracking, nothing on this page loads from the network.
+    A thank-you is a thank-you; nothing is gated behind it.</p>
+</section>
+
+<script>
+  (function () {
+    document.querySelectorAll('.support [data-copy]').forEach(function (btn) {
+      if (btn.dataset.copyWired) return;
+      btn.dataset.copyWired = '1';
+      btn.addEventListener('click', function () {
+        var value = btn.getAttribute('data-copy');
+        var label = btn.textContent;
+        function done() {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = label; }, 1500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(value).then(done, function () {});
+          return;
+        }
+        var t = document.createElement('textarea');
+        t.value = value; t.setAttribute('readonly', ''); t.style.position = 'absolute';
+        t.style.left = '-9999px'; document.body.appendChild(t); t.select();
+        try { document.execCommand('copy'); done(); } catch (e) {}
+        t.remove();
+      });
+    });
+  })();
+</script>
+<!-- support:block:end -->
+
+  <p class="platforms">Windows · Linux · Android — no macOS or iOS build</p>
+  <p><strong>Accent Oracle</strong> — part of the <a href="https://drsamonline.github.io/">drsamonline</a>
+    estate. PolyForm Noncommercial 1.0.0. <a href="https://github.com/drsamonline/accent-oracle">Source</a> ·
+    <a href="SPEC.md">Spec</a></p>
+  <p class="stamp">build __BUILD_DATE__ · commit __COMMIT__</p>
+</div></footer>
+
+<script>
+  /* The theme toggle: its own key, so flipping the app does not flip this page. */
+  (function () {
+    var btn = document.getElementById('theme-toggle');
+    var root = document.documentElement;
+    function paint() {
+      var dark = root.dataset.theme === 'dark';
+      btn.textContent = dark ? 'Light' : 'Dark';
+      btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    }
+    paint();
+    btn.addEventListener('click', function () {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('theme:accent-oracle', root.dataset.theme); } catch (e) {}
+      paint();
+    });
+  })();
+
+  /* The signal strip: a fixed shape, not a random one — so it looks the same
+     on every visit and in every screenshot. */
+  (function () {
+    var host = document.getElementById('signal');
+    if (!host) return;
+    var bars = 72;
+    for (var i = 0; i < bars; i++) {
+      var t = i / bars;
+      var v = 0.18 + 0.82 * Math.abs(Math.sin(t * 9.2) * Math.cos(t * 3.1 + 0.6));
+      var h = Math.max(4, Math.round(v * 56));
+      var el = document.createElement('i');
+      el.style.height = h + 'px';
+      host.appendChild(el);
+    }
+  })();
+
+  /* The demo: reveal the real app once it has loaded, so a blocked frame keeps
+     the poster instead of showing a blank rectangle. */
+  (function () {
+    var frame = document.getElementById('frame');
+    var iframe = document.getElementById('demo-frame');
+    var base = iframe.getAttribute('data-src');
+    function load() {
+      iframe.src = base;
+      iframe.addEventListener('load', function () { frame.classList.add('live'); }, { once: true });
+    }
+    var live = /^https?:$/.test(location.protocol);
+    if (live) {
+      load();
+    } else {
+      document.querySelectorAll('.guided button').forEach(function (b) { b.disabled = true; });
+    }
+    document.querySelectorAll('.guided button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        iframe.src = base + b.getAttribute('data-route');
+        frame.classList.add('live');
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: file:; media-src 'self' file: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Accent Oracle — a game about how you sound</title>
+<meta name="description" content="Speak for four seconds and it guesses which accent it heard, with a band on how sure it is. Offline, on device, no account. A game, not a judgment.">
+<meta name="theme-color" content="#edf1f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08131a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('theme:accent-oracle-app');
+      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = saved || (dark ? 'dark' : 'light');
+    } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  })();
+</script>
+<style>
+  :root{
+    --ink:#0d1a20; --paper:#edf1f3; --paper-2:#fbfdfd; --muted:#5a6b74; --line:#cbd7dc;
+    --accent:#0f766e; --accent-2:#b45309; --frame:#dfe7ea; --warn:#9a3412; --ok:#15803d;
+    --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  [data-theme="dark"]{
+    --ink:#e6f0f3; --paper:#08131a; --paper-2:#0f1f27; --muted:#8ba3ad; --line:#1d3540;
+    --accent:#4fd1c5; --accent-2:#f0a35e; --frame:#050d12; --warn:#f0a35e; --ok:#5fd68a;
+  }
+  *{box-sizing:border-box}
+  html{color-scheme:light dark}
+  body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--sans);
+       -webkit-font-smoothing:antialiased}
+  .band{height:5px;background:linear-gradient(90deg,var(--accent),var(--paper) 45%,var(--accent-2))}
+  .wrap{max-width:52rem;margin:0 auto;padding:0 1.3rem}
+  header .wrap{display:flex;align-items:center;gap:.8rem;padding:1rem 1.3rem .8rem}
+  .brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:inherit;flex:1;min-width:0}
+  .brand svg{flex:0 0 34px}
+  .brand b{font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand small{display:block;font-size:.72rem;color:var(--muted);letter-spacing:.04em;
+               font-family:var(--mono);text-transform:uppercase}
+  .hbtns{display:flex;gap:.45rem;align-items:center;flex-shrink:0}
+  .ghost{font:inherit;font-family:var(--sans);font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;
+         background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:.4rem;
+         padding:.35rem .6rem;cursor:pointer;text-decoration:none}
+  .ghost:hover,.ghost:focus-visible{color:var(--ink);border-color:var(--ink)}
+  main{padding:1.4rem 0 3rem}
+  .screen[hidden]{display:none}
+  h1{font-size:clamp(1.9rem,5.4vw,2.9rem);line-height:1.06;letter-spacing:-.02em;margin:.4rem 0 .7rem}
+  h1 em{font-style:normal;color:var(--muted)}
+  h2{font-size:1.35rem;letter-spacing:-.01em;margin:0 0 .5rem}
+  h3{font-size:1rem;margin:0 0 .3rem}
+  p{margin:0 0 .9rem}
+  .kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+          color:var(--muted);margin:0 0 .5rem}
+  .lede{font-size:1.05rem;color:var(--muted);max-width:34rem}
+  /* --- the recorder --- */
+  .rig{background:var(--paper-2);border:1px solid var(--line);border-radius:.9rem;padding:1.2rem;margin:1.4rem 0}
+  .scope{position:relative;height:96px;background:var(--frame);border:1px solid var(--line);
+         border-radius:.6rem;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .scope canvas{width:100%;height:100%;display:block}
+  .scope .idle{position:absolute;font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;
+               text-transform:uppercase;color:var(--muted)}
+  .rig.live .scope .idle{display:none}
+  .rigrow{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:.9rem}
+  .btn{font:inherit;font-family:var(--sans);font-size:.95rem;padding:.7rem 1.1rem;border-radius:.55rem;
+       border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;
+       text-decoration:none;display:inline-block}
+  .btn:hover,.btn:focus-visible{border-color:var(--ink)}
+  .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .btn.rec{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+  [data-theme="dark"] .btn.rec{color:#04191c}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn small{display:block;font-size:.72rem;opacity:.75;letter-spacing:.03em}
+  .hint{font-size:.85rem;color:var(--muted);margin:.8rem 0 0}
+  .err{border-left:3px solid var(--warn);background:var(--paper-2);padding:.7rem .9rem;
+       border-radius:.3rem;font-size:.92rem;margin:.9rem 0 0}
+  .err[hidden]{display:none}
+  /* --- result --- */
+  .verdict{margin:1.2rem 0 0}
+  .verdict .name{font-size:clamp(1.7rem,5vw,2.4rem);line-height:1.1;letter-spacing:-.02em;margin:.1rem 0 .3rem}
+  .region{color:var(--muted);margin:0 0 1rem}
+  .chip{display:inline-flex;align-items:center;gap:.45rem;font-family:var(--mono);font-size:.72rem;
+        letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);border-radius:2rem;
+        padding:.25rem .7rem;color:var(--muted)}
+  .chip b{color:var(--ink);font-weight:600}
+  .chip.tight{border-color:var(--accent);color:var(--accent)}
+  .chip.tight b{color:var(--accent)}
+  .chip.loose{border-color:var(--accent-2)}
+  .chip.loose b{color:var(--accent-2)}
+  .bars{margin:1.1rem 0 .4rem;display:grid;gap:.45rem}
+  .bar{display:grid;grid-template-columns:1fr;gap:.2rem}
+  .bar .lab{display:flex;justify-content:space-between;gap:1rem;font-size:.85rem;color:var(--muted)}
+  .bar .lab b{color:var(--ink);font-weight:600}
+  .bar .track{height:7px;background:var(--line);border-radius:2rem;overflow:hidden}
+  .bar .fill{height:100%;background:var(--accent);border-radius:2rem}
+  .bar.second .fill{background:var(--muted);opacity:.6}
+  .bar.third .fill{background:var(--muted);opacity:.35}
+  .note{font-size:.88rem;color:var(--muted);margin:.5rem 0 0}
+  .card{background:var(--paper-2);border:1px solid var(--line);border-radius:.8rem;padding:1.1rem 1.2rem;margin:1.3rem 0}
+  .card dl{margin:.6rem 0 0;display:grid;grid-template-columns:auto 1fr;gap:.4rem 1rem;font-size:.92rem}
+  .card dt{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+           color:var(--muted);padding-top:.25rem}
+  .card dd{margin:0}
+  .actions{display:flex;gap:.55rem;flex-wrap:wrap;margin:1.3rem 0 0}
+  details.meas{margin:1.2rem 0 0;font-size:.88rem}
+  details.meas summary{cursor:pointer;color:var(--muted);font-family:var(--mono);font-size:.75rem;
+                       letter-spacing:.1em;text-transform:uppercase}
+  .meas table{width:100%;border-collapse:collapse;margin-top:.6rem;font-variant-numeric:tabular-nums}
+  .meas td{padding:.3rem 0;border-bottom:1px solid var(--line);font-size:.86rem}
+  .meas td:last-child{text-align:right;font-family:var(--mono)}
+  /* --- challenge --- */
+  .score{display:flex;gap:1.4rem;font-family:var(--mono);font-size:.8rem;letter-spacing:.06em;
+         text-transform:uppercase;color:var(--muted);margin:0 0 1rem}
+  .score b{display:block;font-size:1.5rem;color:var(--ink);letter-spacing:-.02em}
+  .sentence{font-size:1.2rem;line-height:1.5;border-left:3px solid var(--accent);padding:.2rem 0 .2rem 1rem;
+            margin:0 0 1.2rem;color:var(--ink)}
+  select{font:inherit;font-size:.92rem;padding:.5rem .6rem;border-radius:.45rem;
+         border:1px solid var(--line);background:var(--paper-2);color:var(--ink);max-width:100%}
+  .list{display:grid;gap:.5rem;margin:1rem 0 0}
+  .row{display:flex;gap:.7rem;align-items:baseline;font-size:.92rem;
+       border-bottom:1px solid var(--line);padding-bottom:.5rem}
+  .row .t{font-family:var(--mono);font-size:.72rem;color:var(--muted);min-width:4.6rem}
+  footer{border-top:1px solid var(--line);padding:1.4rem 0 3rem;color:var(--muted);font-size:.82rem}
+  footer a{color:var(--muted)}
+  .stamp{font-family:var(--mono);font-size:.72rem;opacity:.75;margin:.4rem 0 0}
+  @media (max-width:600px){
+    header .wrap{flex-wrap:wrap;row-gap:.55rem;padding-bottom:.5rem}
+    .brand{flex:1 0 100%}
+    .brand small{display:none}
+    .hbtns{width:100%;flex-wrap:wrap}
+    .ghost,.support-open{font-size:.72rem;padding:.3rem .5rem}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="band"></div>
+
+<header><div class="wrap">
+  <a class="brand" href="#/">
+    <svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true" focusable="false">
+      <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/>
+      <circle cx="20" cy="20" r="12" fill="none" stroke="currentColor" stroke-width=".8" opacity=".22"/>
+      <g fill="var(--accent)">
+        <rect x="12.4" y="17.4" width="2" height="5.2" rx="1"/>
+        <rect x="16.4" y="13.6" width="2" height="12.8" rx="1"/>
+        <rect x="20.4" y="10.6" width="2" height="18.8" rx="1"/>
+        <rect x="24.4" y="15.2" width="2" height="9.6" rx="1"/>
+      </g>
+      <circle cx="28.6" cy="20" r="1.6" fill="var(--accent-2)"/>
+    </svg>
+    <span><b>Accent Oracle</b><small>a game about how you sound</small></span>
+  </a>
+  <div class="hbtns">
+    <a class="ghost" href="#/about">Audio</a>
+    <a class="ghost" href="#/challenge">Challenge</a>
+    <button class="ghost" type="button" id="theme-toggle">Dark</button>
+    <button class="support-open" type="button" id="support-open"
+            aria-haspopup="dialog" aria-controls="support-dialog">Support</button>
+  </div>
+</div></header>
+
+<main><div class="wrap">
+
+  <!-- ================= home ================= -->
+  <section class="screen" id="screen-home">
+    <p class="kicker">offline · on device · no account</p>
+    <h1>Say a sentence.<br><em>It guesses which accent it heard.</em></h1>
+    <p class="lede">Four seconds of speech, measured in your browser. It names an accent and
+      the region that accent is usually heard in — and it tells you how sure it is, which is
+      usually not very.</p>
+
+    <div class="rig" id="rig">
+      <div class="scope" id="scope">
+        <span class="idle" id="scope-idle">waiting for the microphone</span>
+        <canvas id="scope-canvas" width="900" height="96" aria-hidden="true"></canvas>
+      </div>
+      <div class="rigrow">
+        <button class="btn rec" type="button" id="rec-btn">Record four seconds</button>
+        <button class="btn" type="button" id="stop-btn" disabled>Stop early</button>
+        <label class="btn" for="file-in" style="cursor:pointer">Use a clip instead</label>
+        <input id="file-in" type="file" accept="audio/*" hidden>
+      </div>
+      <p class="hint" id="rec-hint">Read the sentence out loud, in your normal voice, about a
+        hand-span from the microphone. Or drop in a clip — it is decoded here too.</p>
+      <p class="err" id="rec-err" hidden></p>
+    </div>
+
+    <div class="card">
+      <h3>The sentence</h3>
+      <p class="sentence" id="read-sentence">I asked her to bring a bottle of water from the
+        corner shop.</p>
+      <p class="note">A fixed sentence makes samples comparable — the same words, the same vowel
+        set, so what is left is how you say them.</p>
+    </div>
+
+    <div class="actions">
+      <a class="btn" href="#/challenge">Challenge mode →</a>
+      <a class="btn" href="#/about">What happens to the audio</a>
+    </div>
+  </section>
+
+  <!-- ================= result ================= -->
+  <section class="screen" id="screen-result" hidden>
+    <p class="kicker" id="r-kicker">the guess</p>
+    <div class="verdict">
+      <p class="chip" id="r-chip"><b>—</b></p>
+      <p class="name" id="r-name">—</p>
+      <p class="region" id="r-region">—</p>
+    </div>
+    <div class="bars" id="r-bars"></div>
+    <p class="note" id="r-bandnote"></p>
+
+    <div class="card" id="r-learn">
+      <h3 id="r-learn-h">About this accent</h3>
+      <dl>
+        <dt>heard in</dt><dd id="r-where"></dd>
+        <dt>confused with</dt><dd id="r-confused"></dd>
+        <dt>worth knowing</dt><dd id="r-fact"></dd>
+      </dl>
+    </div>
+
+    <p class="note" id="r-caveat">This names an accent, not a person. It is not a guess at
+      nationality, ethnicity or identity — an accent is something you learned from the people
+      around you, and people move. A wrong answer here is the normal case, not a failure.</p>
+
+    <details class="meas" id="r-meas">
+      <summary>What it measured</summary>
+      <table><tbody id="r-meas-body"></tbody></table>
+      <p class="note" style="margin-top:.7rem">Eight numbers, measured from the audio. The
+        profiles they are compared against are hand-set starting values rather than values
+        measured from a labelled corpus — see <code>ACCENTS.md</code> in the repository for
+        what that means and how to fix it.</p>
+    </details>
+
+    <div class="actions">
+      <a class="btn primary" href="#/">Try another sample</a>
+      <a class="btn" href="#/challenge">Argue about it →</a>
+      <a class="btn" id="r-learn-link" href="#/learn/in-gen">The full card</a>
+    </div>
+  </section>
+
+  <!-- ================= accent card ================= -->
+  <section class="screen" id="screen-learn" hidden>
+    <p class="kicker">the card</p>
+    <h2 id="l-name">—</h2>
+    <p class="region" id="l-region">—</p>
+    <div class="card">
+      <dl>
+        <dt>heard in</dt><dd id="l-where"></dd>
+        <dt>confused with</dt><dd id="l-confused"></dd>
+        <dt>worth knowing</dt><dd id="l-fact"></dd>
+      </dl>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="#/">Record a sample</a>
+      <a class="btn" href="#/about">What happens to the audio</a>
+    </div>
+  </section>
+
+  <!-- ================= challenge ================= -->
+  <section class="screen" id="screen-challenge" hidden>
+    <p class="kicker">challenge mode</p>
+    <h2>The room against the oracle</h2>
+    <p class="lede">Someone records a sample. The oracle guesses out loud. Then the room says
+      what it actually was, and the room keeps score. The oracle is allowed to lose — that is
+      the game.</p>
+    <div class="score">
+      <span>rounds <b id="c-rounds">0</b></span>
+      <span>room right <b id="c-right">0</b></span>
+      <span>oracle right <b id="c-oracle">0</b></span>
+    </div>
+    <p class="sentence" id="c-sentence">I asked her to bring a bottle of water from the
+      corner shop.</p>
+    <div class="rigrow">
+      <button class="btn rec" type="button" id="c-rec">Record a round</button>
+      <label class="btn" for="c-file">Use a clip</label>
+      <input id="c-file" type="file" accept="audio/*" hidden>
+    </div>
+    <p class="err" id="c-err" hidden></p>
+
+    <div class="card" id="c-verdict" hidden>
+      <p class="kicker">the oracle said</p>
+      <p class="name" id="c-guess" style="font-size:1.4rem;margin:.1rem 0 .8rem">—</p>
+      <p class="note" id="c-band"></p>
+      <p style="margin-top:1rem"><label for="c-truth">The room says it was:</label></p>
+      <div class="rigrow">
+        <select id="c-truth"></select>
+        <button class="btn primary" type="button" id="c-settle">Settle it</button>
+        <button class="btn" type="button" id="c-skip">Nobody knows</button>
+      </div>
+    </div>
+
+    <div class="list" id="c-log"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="c-reset">Reset the scoreboard</button>
+      <a class="btn" href="#/">Back to the oracle</a>
+    </div>
+  </section>
+
+  <!-- ================= about ================= -->
+  <section class="screen" id="screen-about" hidden>
+    <p class="kicker">what happens to your audio</p>
+    <h2>It stays here, and then it is gone.</h2>
+    <p>The recording is decoded in this page, turned into eight numbers, and the audio is
+      dropped. Nothing is uploaded, because there is nowhere to upload it to: the page has a
+      <code>Content-Security-Policy</code> that forbids every network connection
+      (<code>connect-src 'none'</code>), so a fetch or a WebSocket would be blocked by the
+      browser itself rather than by a promise in the footer.</p>
+    <div class="card">
+      <dl>
+        <dt>leaves device</dt><dd>Never. No server, no model download, no analytics.</dd>
+        <dt>stored</dt><dd>Nothing. The sample is discarded the moment the guess is made.</dd>
+        <dt>account</dt><dd>None, and no cookie that identifies you.</dd>
+        <dt>kept locally</dt><dd>Your theme choice, and the challenge scoreboard. Both live in
+          this browser and both can be cleared from it.</dd>
+        <dt>the model</dt><dd>Ships inside this file. There is no download, so it also works
+          with the network switched off.</dd>
+      </dl>
+    </div>
+    <p class="note">The honest caveat: the eight measurements are real, but the accent profiles
+      they are compared against are hand-set starting values, not values measured from a
+      labelled corpus. The repository says exactly what that means and what it would take to
+      fix it.</p>
+    <div class="actions"><a class="btn primary" href="#/">Back to the oracle</a></div>
+  </section>
+
+</div></main>
+
+<footer><div class="wrap">
+  <p><strong>Accent Oracle</strong> — part of the <a href="https://drsamonline.github.io/">drsamonline</a>
+    estate. Free, offline, accountless. <a href="https://github.com/drsamonline/accent-oracle">Source</a> ·
+    <a href="https://drsamonline.github.io/accent-oracle/">Landing page</a> · <a href="#support">Support</a></p>
+  <p class="stamp">build __BUILD_DATE__ · commit __COMMIT__ · engine <span id="eng-ver">1.0.0</span></p>
+</div></footer>
+
+<!-- ==================================================================== -->
+<!-- support:app — region 2 (button above) + region 1 inside the dialog.   -->
+<!-- ==================================================================== -->
+<dialog class="support-dialog" id="support-dialog" aria-label="Support this work">
+  <button class="support-close" type="button" id="support-close" aria-label="Close">×</button>
+<!-- support:block:start -->
+<style>
+  .support{--s-ink:var(--ink,#14110e);--s-paper:var(--paper,#f7f2e9);--s-card:var(--paper-2,#fffdf8);
+           --s-muted:var(--muted,#6b6157);--s-line:var(--line,#e2d8c8);--s-accent:var(--accent,#2f6f8f);
+           font-family:var(--sans,ui-sans-serif,-apple-system,"Segoe UI",sans-serif);
+           color:var(--s-ink);padding:2.6rem 0 1rem;border-top:1px solid var(--s-line)}
+  .support-head{display:flex;gap:1rem;align-items:flex-start;margin:0 0 1.4rem}
+  .support-portrait{width:72px;height:72px;flex:0 0 72px;border-radius:50%;object-fit:cover;
+                    border:1px solid var(--s-line);background:var(--s-card)}
+  .support h2{font-size:1.15rem;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .5rem;color:var(--s-muted)}
+  .support .support-lede{margin:0;max-width:44rem;color:var(--s-muted);font-size:.95rem}
+  .support-grid{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));align-items:stretch}
+  .support-card{background:var(--s-card);border:1px solid var(--s-line);border-radius:.7rem;padding:.9rem 1rem;
+                display:flex;flex-direction:column;gap:.35rem}
+  .support-card h3{margin:0;font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--s-muted);font-weight:600}
+  .support-card p{margin:0;font-size:.92rem;line-height:1.5}
+  .support-card a{color:var(--s-accent);text-decoration:none;border-bottom:1px solid transparent;word-break:break-word}
+  .support-card a:hover,.support-card a:focus-visible{border-bottom-color:currentColor}
+  .support-id{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .support-id code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95rem;
+                   background:transparent;border:1px dashed var(--s-line);border-radius:.35rem;padding:.15rem .45rem}
+  .support-copy{font:inherit;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;
+                background:transparent;color:var(--s-muted);border:1px solid var(--s-line);
+                border-radius:.35rem;padding:.2rem .5rem;cursor:pointer}
+  .support-copy:hover,.support-copy:focus-visible{color:var(--s-ink);border-color:var(--s-ink)}
+  .support-card.upi{grid-row:span 1}
+  .support-qr{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;margin-top:.2rem}
+  .support-qr img{width:132px;height:132px;display:block;background:#fff;padding:.35rem;
+                  border:1px solid var(--s-line);border-radius:.4rem;image-rendering:pixelated}
+  .support-qr small{display:block;color:var(--s-muted);font-size:.8rem;max-width:11rem;line-height:1.4}
+  .support-foot{margin:1.2rem 0 0;font-size:.8rem;color:var(--s-muted)}
+  @media (prefers-reduced-motion:no-preference){.support-card{transition:border-color .15s ease}}
+  .support-card:target,.support-card:focus-within{border-color:var(--s-accent)}
+</style>
+
+<section class="support" id="support" aria-labelledby="support-h" data-support>
+  <div class="support-head">
+    <img class="support-portrait" src="../assets/support-portrait.jpg" width="72" height="72"
+         alt="Dr. Sohil Momin" loading="lazy" decoding="async">
+    <div>
+      <h2 id="support-h">Support this work</h2>
+      <p class="support-lede">Everything here is free, offline and accountless. If it earned its keep,
+        there are a few ways to say so — pick whichever is easiest where you are.</p>
+    </div>
+  </div>
+  <div class="support-grid">
+
+    <div class="support-card upi">
+      <h3>UPI · India</h3>
+      <div class="support-id">
+        <code id="upi-vpa">drsohilboi@ybl</code>
+        <button class="support-copy" type="button" data-copy="drsohilboi@ybl"
+                aria-label="Copy the UPI ID drsohilboi@ybl">Copy</button>
+      </div>
+      <p><a href="upi://pay?pa=drsohilboi%40ybl&amp;pn=Dr.%20Sohil%20Momin&amp;cu=INR">Open in a UPI app →</a></p>
+      <div class="support-qr">
+        <img src="../assets/upi-qr.svg" width="132" height="132"
+             alt="QR code for the UPI ID drsohilboi@ybl, payee Dr. Sohil Momin">
+        <small>Scan with any UPI app. Payee: Dr. Sohil Momin.</small>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <h3>Ko-fi</h3>
+      <p>One-off tip, no account needed.<br>
+        <a href="https://ko-fi.com/matneo" target="_blank" rel="noopener noreferrer">ko-fi.com/matneo →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>PayPal</h3>
+      <p>For outside India, or a card instead of UPI.<br>
+        <a href="https://paypal.me/drsohilmomin?locale.x=en_GB&amp;country.x=IN"
+           target="_blank" rel="noopener noreferrer">paypal.me/drsohilmomin →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>My books</h3>
+      <p>The Amazon author store — every title, one shelf.<br>
+        <a href="https://www.amazon.com/stores/author/B08ZT331LY/allbooks?ccs_id=aed72b9f-71d9-41dc-adee-e9368a317acc"
+           target="_blank" rel="noopener noreferrer">Amazon bookstore →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>More apps</h3>
+      <p>The rest of the estate, all of it offline-first.<br>
+        <a href="https://drsamonline.github.io/" target="_blank" rel="noopener noreferrer">drsamonline.github.io →</a></p>
+    </div>
+
+    <div class="support-card">
+      <h3>Say hello</h3>
+      <p>Bugs, corrections, requests.<br>
+        <a href="mailto:sohilmomin2000@gmail.com">sohilmomin2000@gmail.com →</a></p>
+    </div>
+
+  </div>
+  <p class="support-foot">No accounts, no tracking, nothing on this page loads from the network.
+    A thank-you is a thank-you; nothing is gated behind it.</p>
+</section>
+
+<script>
+  (function () {
+    document.querySelectorAll('.support [data-copy]').forEach(function (btn) {
+      if (btn.dataset.copyWired) return;
+      btn.dataset.copyWired = '1';
+      btn.addEventListener('click', function () {
+        var value = btn.getAttribute('data-copy');
+        var label = btn.textContent;
+        function done() {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = label; }, 1500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(value).then(done, function () {});
+          return;
+        }
+        var t = document.createElement('textarea');
+        t.value = value; t.setAttribute('readonly', ''); t.style.position = 'absolute';
+        t.style.left = '-9999px'; document.body.appendChild(t); t.select();
+        try { document.execCommand('copy'); done(); } catch (e) {}
+        t.remove();
+      });
+    });
+  })();
+</script>
+<!-- support:block:end -->
+</dialog>
+<style>
+  .support-open{font:inherit;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;
+                background:transparent;color:inherit;border:1px solid currentColor;border-radius:.4rem;
+                padding:.3rem .6rem;cursor:pointer;opacity:.75}
+  .support-open:hover,.support-open:focus-visible{opacity:1}
+  .support-dialog{border:1px solid var(--line,CanvasText);border-radius:.9rem;padding:0 1.2rem 1.2rem;
+                  max-width:46rem;width:calc(100% - 2rem);color-scheme:inherit;
+                  background:var(--paper,Canvas);color:var(--ink,CanvasText)}
+  .support-dialog::backdrop{background:rgba(0,0,0,.45)}
+  .support-dialog .support{border-top:0}
+  .support-close{position:sticky;top:0;float:right;margin:.6rem 0 0;font:inherit;font-size:1.1rem;
+                 line-height:1;background:transparent;border:1px solid var(--line,CanvasText);
+                 border-radius:.4rem;padding:.2rem .5rem;cursor:pointer;color:inherit}
+</style>
+
+<!-- ==================================================================== -->
+<!-- The engine. Pure maths, no DOM, no network — test/engine.test.js      -->
+<!-- lifts this block out of the file and runs it in Node.                -->
+<!-- ==================================================================== -->
+<script id="oracle-engine">
+(function (global) {
+  'use strict';
+
+  var VERSION = '1.0.0';
+
+  /* ---------------------------------------------------------------- */
+  /* What gets measured. `scale` is the spread that counts as one unit */
+  /* of difference; `weight` is how much that feature is allowed to   */
+  /* move the answer. Pitch is weighted low on purpose: it tracks     */
+  /* speaker sex and age far more than it tracks accent.              */
+  /* ---------------------------------------------------------------- */
+  var FEATURE_KEYS = ['f0med', 'f0sd', 'sylRate', 'pctV', 'f1', 'f2', 'disp', 'voicing'];
+
+  var FEATURE_META = {
+    f0med:   { label: 'median pitch',      unit: 'Hz',   scale: 0.22, weight: 0.25, log: true },
+    f0sd:    { label: 'pitch movement',    unit: 'st',   scale: 2.4,  weight: 0.8 },
+    sylRate: { label: 'syllables / second', unit: '',    scale: 1.1,  weight: 1.0 },
+    pctV:    { label: 'voiced share',      unit: '',     scale: 0.14, weight: 1.2 },
+    f1:      { label: 'first formant',     unit: 'Bark', scale: 1.4,  weight: 1.0 },
+    f2:      { label: 'second formant',    unit: 'Bark', scale: 1.4,  weight: 1.0 },
+    disp:    { label: 'vowel spread',      unit: 'Bark', scale: 0.75, weight: 0.8 },
+    voicing: { label: 'voice quality',     unit: '',     scale: 0.14, weight: 0.5 }
+  };
+
+  /* ---------------------------------------------------------------- */
+  /* PRIOR — hand-set starting values, NOT measured from a corpus.    */
+  /* Ordered the way the literature would lead you to expect, and     */
+  /* documented in ACCENTS.md § Calibration. Replace this block with  */
+  /* real centroids before believing any of it.                       */
+  /* ---------------------------------------------------------------- */
+  var PRIOR = [
+    { id: 'in-gen',   f0med: 166, f0sd: 4.6, sylRate: 4.7, pctV: 0.66, f1: 6.0, f2: 11.6, disp: 1.00, voicing: 0.53 },
+    { id: 'in-south', f0med: 152, f0sd: 3.8, sylRate: 4.9, pctV: 0.69, f1: 5.5, f2: 12.4, disp: 1.30, voicing: 0.50 },
+    { id: 'in-east',  f0med: 172, f0sd: 5.4, sylRate: 4.4, pctV: 0.63, f1: 6.5, f2: 11.1, disp: 0.85, voicing: 0.57 },
+    { id: 'gb-rp',    f0med: 150, f0sd: 6.4, sylRate: 6.1, pctV: 0.45, f1: 6.5, f2: 10.8, disp: 1.60, voicing: 0.68 },
+    { id: 'gb-north', f0med: 158, f0sd: 5.2, sylRate: 5.8, pctV: 0.49, f1: 6.2, f2: 11.4, disp: 1.35, voicing: 0.63 },
+    { id: 'gb-scot',  f0med: 148, f0sd: 4.2, sylRate: 5.3, pctV: 0.55, f1: 5.9, f2: 11.0, disp: 1.15, voicing: 0.59 },
+    { id: 'ie',       f0med: 164, f0sd: 7.0, sylRate: 5.5, pctV: 0.52, f1: 6.1, f2: 12.0, disp: 1.50, voicing: 0.61 },
+    { id: 'us-gen',   f0med: 136, f0sd: 5.6, sylRate: 5.9, pctV: 0.44, f1: 6.9, f2: 10.2, disp: 1.95, voicing: 0.70 },
+    { id: 'us-south', f0med: 128, f0sd: 8.0, sylRate: 4.9, pctV: 0.60, f1: 7.2, f2: 11.6, disp: 2.00, voicing: 0.66 },
+    { id: 'au',       f0med: 162, f0sd: 6.6, sylRate: 5.2, pctV: 0.47, f1: 5.8, f2: 12.6, disp: 1.72, voicing: 0.65 },
+    { id: 'ng',       f0med: 182, f0sd: 5.0, sylRate: 4.2, pctV: 0.68, f1: 5.9, f2: 11.2, disp: 0.75, voicing: 0.60 },
+    { id: 'sg',       f0med: 176, f0sd: 3.2, sylRate: 5.1, pctV: 0.72, f1: 5.3, f2: 11.9, disp: 0.70, voicing: 0.55 }
+  ];
+
+  /* The cards. Copy lives here so the app and the repository cannot drift. */
+  var ACCENTS = {
+    'in-gen': {
+      name: 'General Indian English',
+      region: 'India — the English heard across most of the country',
+      where: 'School and office English from Mumbai to Delhi to Hyderabad; the default register of Indian news broadcasting.',
+      confused: 'Pakistani and Bangladeshi English, and Sri Lankan English on a short sample.',
+      fact: 'Usually described as syllable-timed: syllables keep roughly equal weight, where British or American English crushes unstressed syllables almost to nothing.'
+    },
+    'in-south': {
+      name: 'South Indian English',
+      region: 'Tamil Nadu, Kerala, Karnataka, Andhra Pradesh and Telangana',
+      where: 'Chennai, Kochi, Bengaluru, Hyderabad — and everywhere their speakers have moved since.',
+      confused: 'Sri Lankan English; general Indian English on a sample shorter than a sentence.',
+      fact: 'Retroflex consonants are made with the tongue curled further back than in most other Englishes — one of the most reliably audible markers in the country.'
+    },
+    'in-east': {
+      name: 'Eastern Indian English',
+      region: 'West Bengal, Odisha, Assam and the north-east',
+      where: 'Kolkata, Bhubaneswar, Guwahati and the north-east.',
+      confused: 'General Indian English, and Bangladeshi English.',
+      fact: 'Vowel length is often carried by quality rather than duration, so pairs that sound clearly different in British English can fall together.'
+    },
+    'gb-rp': {
+      name: 'Received Pronunciation',
+      region: 'southern England — long the reference accent of British broadcasting',
+      where: 'Southern England. Much less dominant there now than old recordings suggest.',
+      confused: 'Other southern British accents, and with "BBC English" as people remember it rather than as it is spoken today.',
+      fact: 'It is non-rhotic: the r in "car" is not pronounced. Most English accents share that, which makes it a weak clue on its own.'
+    },
+    'gb-north': {
+      name: 'Northern English',
+      region: 'Manchester, Leeds, Liverpool, Sheffield and Newcastle',
+      where: 'The north of England — and those cities do not share one accent, which is the game\u2019s problem in miniature.',
+      confused: 'Scottish and Irish English, and each other.',
+      fact: 'The vowel in "cup" is the classic dividing line: the north keeps it short and rounded, the south lengthens it.'
+    },
+    'gb-scot': {
+      name: 'Scottish English',
+      region: 'Scotland',
+      where: 'Scotland. Glasgow, Edinburgh and the Highlands differ more from each other than some cards here differ from one another.',
+      confused: 'Irish and Northern Irish English, and Northern English.',
+      fact: 'It is rhotic, and it keeps a distinction between "which" and "witch" that most other varieties have dropped.'
+    },
+    'ie': {
+      name: 'Irish English',
+      region: 'the Republic of Ireland and Northern Ireland',
+      where: 'The Republic of Ireland and Northern Ireland.',
+      confused: 'Scottish English, and Northern English.',
+      fact: 'Many Irish varieties soften t and d between vowels, so "city" can land close to "sissy" — a habit that also turns up in some American English.'
+    },
+    'us-gen': {
+      name: 'General American',
+      region: 'the United States — strongest in the Midwest and West',
+      where: 'The United States; the accent of national broadcast news, strongest in the Midwest and West.',
+      confused: 'Canadian English, which is very close, and "neutral" American in general.',
+      fact: 'It is rhotic and it flaps its t\u2019s, so "writer" and "rider" can sound identical — which is why Americans spell names out loud on the phone.'
+    },
+    'us-south': {
+      name: 'Southern US English',
+      region: 'the American South, from Texas to the Carolinas',
+      where: 'The American South, from Texas to the Carolinas.',
+      confused: 'Appalachian English and African American English, which share several features and are routinely collapsed into it by outsiders.',
+      fact: 'The drawl is measurable: vowels lengthen and some become glides, so "time" drifts toward "tahm".'
+    },
+    'au': {
+      name: 'Australian English',
+      region: 'Australia — broadly uniform across a continent',
+      where: 'Australia. The real split is city against country, not state against state.',
+      confused: 'New Zealand English, the closest pair in this set.',
+      fact: 'The vowel in "kit" is raised toward "ee" — which is why "fish and chips" is the shibboleth Australians and New Zealanders use on each other.'
+    },
+    'ng': {
+      name: 'Nigerian English',
+      region: 'Nigeria, and widely across West Africa',
+      where: 'Nigeria, and widely across West Africa.',
+      confused: 'Other West African Englishes, and general Indian English on a short sample — both are syllable-timed.',
+      fact: 'Final consonant clusters are often simplified, so "asked" can come out as "aks" — a form that has been in English for a thousand years, not an error.'
+    },
+    'sg': {
+      name: 'Singaporean and Malaysian English',
+      region: 'Singapore and peninsular Malaysia',
+      where: 'Singapore and peninsular Malaysia.',
+      confused: 'Each other, and other South-East Asian Englishes.',
+      fact: 'Strongly syllable-timed, with heavy final-consonant reduction — which together give a noticeably even, clipped rhythm next to British English.'
+    }
+  };
+
+  /* ------------------------------ audio ------------------------------ */
+
+  function to16k(x, sr) {
+    if (sr === 16000) return x;
+    var ratio = sr / 16000;
+    var n = Math.floor(x.length / ratio);
+    var out = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var pos = i * ratio;
+      var i0 = Math.floor(pos);
+      var i1 = Math.min(i0 + 1, x.length - 1);
+      var t = pos - i0;
+      out[i] = x[i0] * (1 - t) + x[i1] * t;
+    }
+    return out;
+  }
+
+  function median(arr) {
+    if (!arr.length) return 0;
+    var s = Array.prototype.slice.call(arr).sort(function (a, b) { return a - b; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  function std(arr, mean) {
+    if (arr.length < 2) return 0;
+    var s = 0;
+    for (var i = 0; i < arr.length; i++) { var d = arr[i] - mean; s += d * d; }
+    return Math.sqrt(s / (arr.length - 1));
+  }
+
+  function bark(f) {
+    return 13 * Math.atan(0.00076 * f) + 3.5 * Math.atan((f / 7500) * (f / 7500));
+  }
+
+  /* Normalised autocorrelation over one frame. Returns pitch + voicing strength. */
+  function framePitch(x, off, N, sr) {
+    var mean = 0, i, j;
+    for (i = 0; i < N; i++) mean += x[off + i];
+    mean /= N;
+    var f = new Float32Array(N);
+    for (i = 0; i < N; i++) f[i] = x[off + i] - mean;
+
+    var minLag = Math.max(2, Math.floor(sr / 400));
+    var maxLag = Math.min(N - 2, Math.floor(sr / 60));
+    var r = new Float32Array(maxLag + 1);
+    var best = -1, bestLag = minLag;
+
+    for (var lag = minLag; lag <= maxLag; lag++) {
+      var num = 0, d1 = 0, d2 = 0, n = N - lag;
+      for (j = 0; j < n; j++) {
+        var a = f[j], b = f[j + lag];
+        num += a * b; d1 += a * a; d2 += b * b;
+      }
+      var den = Math.sqrt(d1 * d2) || 1e-9;
+      var v = num / den;
+      r[lag] = v;
+      if (v > best) { best = v; bestLag = lag; }
+    }
+
+    /* Octave guard: prefer the shortest lag that is nearly as good. */
+    if (best > 0.4) {
+      for (var L = minLag + 1; L < bestLag; L++) {
+        if (r[L] >= best * 0.88 && r[L] >= r[L - 1] && r[L] >= r[L + 1]) { bestLag = L; best = r[L]; break; }
+      }
+    }
+    return { hz: sr / bestLag, voicing: Math.max(0, best) };
+  }
+
+  /* Radix-2 FFT, in place. */
+  function fft(re, im, inverse) {
+    var n = re.length, i, j, k, len;
+    for (i = 1, j = 0; i < n; i++) {
+      var bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        var t = re[i]; re[i] = re[j]; re[j] = t;
+        t = im[i]; im[i] = im[j]; im[j] = t;
+      }
+    }
+    for (len = 2; len <= n; len <<= 1) {
+      var ang = 2 * Math.PI / len * (inverse ? 1 : -1);
+      var wr = Math.cos(ang), wi = Math.sin(ang);
+      for (i = 0; i < n; i += len) {
+        var cr = 1, ci = 0;
+        for (k = 0; k < len / 2; k++) {
+          var ur = re[i + k], ui = im[i + k];
+          var vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+          var vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+          re[i + k] = ur + vr; im[i + k] = ui + vi;
+          re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+          var ncr = cr * wr - ci * wi;
+          ci = cr * wi + ci * wr; cr = ncr;
+        }
+      }
+    }
+    if (inverse) for (i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+  }
+
+  /* First two formants, read off a cepstrally smoothed spectrum.
+     Cepstral liftering separates the spectral envelope from the harmonic comb
+     that the pitch creates — an LPC fit on a strongly periodic frame locks onto
+     the harmonics instead, which is how a 700 Hz formant gets reported as 960. */
+  function frameFormants(x, off, N, sr) {
+    var size = 1024, i, m;
+    var re = new Float64Array(size), im = new Float64Array(size);
+    for (i = 0; i < N && i < size; i++) {
+      re[i] = x[off + i] * (0.54 - 0.46 * Math.cos(2 * Math.PI * i / (N - 1)));
+    }
+    fft(re, im, false);
+
+    var cr = new Float64Array(size), ci = new Float64Array(size);
+    for (i = 0; i < size; i++) {
+      var mg = Math.sqrt(re[i] * re[i] + im[i] * im[i]) || 1e-9;
+      cr[i] = Math.log(mg);
+    }
+    fft(cr, ci, true);
+
+    /* Keep the low quefrencies: everything slow enough to be envelope rather
+       than pitch. 2.5 ms is the usual cut for speech. */
+    var cut = Math.max(8, Math.round(sr * 0.0025));
+    for (i = cut; i < size - cut; i++) { cr[i] = 0; ci[i] = 0; }
+    fft(cr, ci, false);
+
+    var half = size >> 1;
+    var env = new Float64Array(half);
+    for (i = 0; i < half; i++) env[i] = cr[i];
+
+    var lo = Math.ceil(200 * size / sr);
+    var hi = Math.min(half - 2, Math.floor(3500 * size / sr));
+    var span = Math.round(300 * size / sr);
+    var peaks = [];
+    for (i = lo; i <= hi; i++) {
+      if (!(env[i] > env[i - 1] && env[i] >= env[i + 1])) continue;
+      var lmin = Infinity, rmin = Infinity;
+      for (m = Math.max(0, i - span); m < i; m++) lmin = Math.min(lmin, env[m]);
+      for (m = i + 1; m <= Math.min(half - 1, i + span); m++) rmin = Math.min(rmin, env[m]);
+      if ((env[i] - Math.max(lmin, rmin)) > 0.12) peaks.push({ f: i * sr / size, v: env[i] });
+    }
+    if (!peaks.length) return null;
+    peaks.sort(function (a, b) { return b.v - a.v; });
+
+    var f1 = 0, f2 = 0;
+    for (i = 0; i < peaks.length; i++) {
+      if (peaks[i].f >= 200 && peaks[i].f <= 1100) { f1 = peaks[i].f; break; }
+    }
+    if (!f1) return null;
+    for (i = 0; i < peaks.length; i++) {
+      if (peaks[i].f > f1 * 1.22 && peaks[i].f <= 3000) { f2 = peaks[i].f; break; }
+    }
+    if (!f2) return null;
+    return { f1: f1, f2: f2 };
+  }
+
+  /* --------------------------- the measurement --------------------------- */
+
+  function extractFeatures(samples, sampleRate) {
+    if (!samples || !samples.length || !sampleRate) return { ok: false, reason: 'empty' };
+    var sr = 16000;
+    var x = to16k(samples, sampleRate);
+    if (x.length < sr * 0.5) return { ok: false, reason: 'short' };
+
+    var win = 640, hop = 320;
+    var offsets = [];
+    for (var off = 0; off + win <= x.length; off += hop) offsets.push(off);
+    if (offsets.length < 12) return { ok: false, reason: 'short' };
+
+    var n = offsets.length, i, j;
+    var rms = new Float32Array(n);
+    for (i = 0; i < n; i++) {
+      var s = 0;
+      for (j = 0; j < win; j++) { var v = x[offsets[i] + j]; s += v * v; }
+      rms[i] = Math.sqrt(s / win);
+    }
+
+    var sorted = Array.prototype.slice.call(rms).sort(function (a, b) { return a - b; });
+    var peak = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.97))] || 0;
+    if (peak < 0.004) return { ok: false, reason: 'quiet' };
+    var thr = Math.max(0.004, peak * 0.15);
+
+    var speech = [];
+    for (i = 0; i < n; i++) if (rms[i] > thr) speech.push(i);
+    if (speech.length < 10) return { ok: false, reason: 'quiet' };
+
+    var pitches = [], voicings = [], f1s = [], f2s = [], vowelX = [], vowelY = [];
+    var formantBudget = 260;
+
+    for (i = 0; i < speech.length; i++) {
+      var fr = framePitch(x, offsets[speech[i]], win, sr);
+      voicings.push(fr.voicing);
+      if (fr.voicing >= 0.35 && fr.hz > 55 && fr.hz < 420) {
+        pitches.push(fr.hz);
+        if (formantBudget-- > 0) {
+          var fm = frameFormants(x, offsets[speech[i]], win, sr);
+          if (fm) {
+            f1s.push(fm.f1); f2s.push(fm.f2);
+            vowelX.push(bark(fm.f1)); vowelY.push(bark(fm.f2));
+          }
+        }
+      }
+    }
+
+    if (pitches.length < 4) return { ok: false, reason: 'unvoiced' };
+
+    var f0med = median(pitches);
+    var semis = pitches.map(function (p) { return 12 * Math.log(p / f0med) / Math.LN2; });
+    var f0sd = std(semis, 0);
+
+    /* Syllable nuclei: peaks in a smoothed energy envelope, 140 ms apart at least.
+       The smoothing matters — raw frame energy ripples at the pulse rate and turns
+       one syllable into four. */
+    var sm = new Float32Array(n);
+    for (i = 0; i < n; i++) {
+      var acc = 0, cnt = 0;
+      for (j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { acc += rms[j]; cnt++; }
+      sm[i] = acc / cnt;
+    }
+    var minGap = Math.max(2, Math.round(0.14 * sr / hop));
+    var nuclei = 0, lastPeak = -999;
+    for (i = 1; i < n - 1; i++) {
+      if (sm[i] > thr * 1.15 && sm[i] >= sm[i - 1] && sm[i] > sm[i + 1] && (i - lastPeak) >= minGap) {
+        nuclei++; lastPeak = i;
+      }
+    }
+    var speechSeconds = speech.length * hop / sr;
+    var sylRate = speechSeconds > 0 ? nuclei / speechSeconds : 0;
+    sylRate = Math.max(1, Math.min(9, sylRate));
+
+    var pctV = pitches.length / speech.length;
+
+    var f1 = median(f1s), f2 = median(f2s);
+    var f1b = f1 ? bark(f1) : 6.0, f2b = f2 ? bark(f2) : 11.5;
+    var disp = 0;
+    if (vowelX.length > 2) {
+      var cx = 0, cy = 0;
+      for (i = 0; i < vowelX.length; i++) { cx += vowelX[i]; cy += vowelY[i]; }
+      cx /= vowelX.length; cy /= vowelY.length;
+      for (i = 0; i < vowelX.length; i++) {
+        disp += Math.sqrt(Math.pow(vowelX[i] - cx, 2) + Math.pow(vowelY[i] - cy, 2));
+      }
+      disp /= vowelX.length;
+    } else {
+      disp = 1.1;
+    }
+
+    var voicing = voicings.length ? voicings.reduce(function (a, b) { return a + b; }, 0) / voicings.length : 0;
+
+    return {
+      ok: true,
+      features: {
+        f0med: f0med, f0sd: f0sd, sylRate: sylRate, pctV: pctV,
+        f1: f1b, f2: f2b, disp: disp, voicing: voicing
+      },
+      duration: x.length / sr,
+      voicedFrames: pitches.length,
+      speechFrames: speech.length,
+      formantFrames: f1s.length
+    };
+  }
+
+  /* --------------------------- classification --------------------------- */
+
+  function distance(f, p) {
+    var num = 0, den = 0;
+    for (var i = 0; i < FEATURE_KEYS.length; i++) {
+      var k = FEATURE_KEYS[i], m = FEATURE_META[k];
+      var a = f[k], b = p[k];
+      if (m.log) { a = Math.log(Math.max(50, a)); b = Math.log(Math.max(50, b)); }
+      var z = (a - b) / m.scale;
+      num += m.weight * z * z;
+      den += m.weight;
+    }
+    return Math.sqrt(num / den);
+  }
+
+  function bandFor(d1, d2) {
+    var gap = (typeof d2 === 'number') ? d2 - d1 : 99;
+    if (d1 > 1.6) {
+      return { key: 'loose', label: 'wide open', note:
+        'Nothing in the set fits this sample well. The honest answer is that the oracle does not know — which is a perfectly good outcome for a game.' };
+    }
+    if (gap >= 0.30) {
+      return { key: 'tight', label: 'clear enough', note:
+        'One profile fits noticeably better than the next. Noticeably is not certain.' };
+    }
+    if (gap >= 0.15) {
+      return { key: 'fair', label: 'narrow-ish', note:
+        'Two profiles are in the running. Treat the winner as a coin that landed your way.' };
+    }
+    return { key: 'toss', label: 'too close to call', note:
+      'The top profiles are effectively tied. The oracle is picking a name out of a hat, and it would rather say so.' };
+  }
+
+  function classify(f) {
+    var scored = PRIOR.map(function (p) {
+      return { id: p.id, d: distance(f, p) };
+    }).sort(function (a, b) { return a.d - b.d; });
+
+    var top = scored[0].d;
+    var ranked = scored.map(function (s) {
+      return { id: s.id, d: s.d, fit: Math.exp(-s.d), pct: Math.round(100 * Math.exp(-(s.d - top))) };
+    });
+    var band = bandFor(ranked[0].d, ranked[1] ? ranked[1].d : undefined);
+
+    return {
+      ranked: ranked.slice(0, 3),
+      all: ranked,
+      band: band,
+      accent: ACCENTS[ranked[0].id],
+      id: ranked[0].id
+    };
+  }
+
+  /* A synthetic vector for the demo routes — profile plus a little noise. */
+  function demoVector(id, jitter) {
+    var seed = 0;
+    for (var i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) % 9973;
+    function noise(scale) {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return ((seed / 2147483648) - 0.5) * 2 * scale;
+    }
+    var j = (typeof jitter === 'number') ? jitter : 1;
+
+    if (id === 'close') {
+      var a = PRIOR.filter(function (p) { return p.id === 'in-gen'; })[0];
+      var b = PRIOR.filter(function (p) { return p.id === 'ng'; })[0];
+      var mid = {};
+      for (var k = 0; k < FEATURE_KEYS.length; k++) {
+        var key = FEATURE_KEYS[k];
+        mid[key] = (a[key] + b[key]) / 2;
+      }
+      return mid;
+    }
+    if (id === 'loose') {
+      return { f0med: 232, f0sd: 9.4, sylRate: 2.3, pctV: 0.29, f1: 4.4, f2: 14.4, disp: 2.6, voicing: 0.24 };
+    }
+    var p = PRIOR.filter(function (q) { return q.id === id; })[0] || PRIOR[0];
+    var out = {};
+    for (var m = 0; m < FEATURE_KEYS.length; m++) {
+      var kk = FEATURE_KEYS[m];
+      var meta = FEATURE_META[kk];
+      out[kk] = p[kk] + noise(meta.scale * 0.05 * j);
+    }
+    return out;
+  }
+
+  global.OracleEngine = {
+    VERSION: VERSION,
+    FEATURE_KEYS: FEATURE_KEYS,
+    FEATURE_META: FEATURE_META,
+    PRIOR: PRIOR,
+    ACCENTS: ACCENTS,
+    extractFeatures: extractFeatures,
+    classify: classify,
+    bandFor: bandFor,
+    distance: distance,
+    demoVector: demoVector,
+    bark: bark
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var E = window.OracleEngine;
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var SENTENCE = 'I asked her to bring a bottle of water from the corner shop.';
+  var state = { last: null, recording: false };
+
+  /* ------------------------------ theme ------------------------------ */
+  (function () {
+    var btn = $('#theme-toggle');
+    var root = document.documentElement;
+    function paint() {
+      var dark = root.dataset.theme === 'dark';
+      btn.textContent = dark ? 'Light' : 'Dark';
+      btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    }
+    paint();
+    btn.addEventListener('click', function () {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('theme:accent-oracle-app', root.dataset.theme); } catch (e) {}
+      paint();
+    });
+  })();
+
+  /* ---------------------------- support ---------------------------- */
+  (function () {
+    var open = $('#support-open'), dlg = $('#support-dialog'), close = $('#support-close');
+    if (!open || !dlg) return;
+    open.addEventListener('click', function () {
+      if (typeof dlg.showModal === 'function') dlg.showModal();
+      else dlg.setAttribute('open', '');
+    });
+    if (close) close.addEventListener('click', function () {
+      if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+    });
+    dlg.addEventListener('click', function (e) { if (e.target === dlg && dlg.close) dlg.close(); });
+  })();
+
+  /* ---------------------------- screens ---------------------------- */
+  function show(id) {
+    $$('.screen').forEach(function (s) { s.hidden = (s.id !== id); });
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------------------------- recorder ---------------------------- */
+  var rig = { ctx: null, stream: null, mr: null, chunks: [], raf: 0, analyser: null, timer: 0 };
+
+  function setErr(el, msg) {
+    if (!el) return;
+    if (!msg) { el.hidden = true; el.textContent = ''; return; }
+    el.hidden = false; el.textContent = msg;
+  }
+
+  function stopRig() {
+    if (rig.raf) { cancelAnimationFrame(rig.raf); rig.raf = 0; }
+    if (rig.timer) { clearTimeout(rig.timer); rig.timer = 0; }
+    if (rig.mr && rig.mr.state !== 'inactive') { try { rig.mr.stop(); } catch (e) {} }
+    if (rig.stream) { rig.stream.getTracks().forEach(function (t) { t.stop(); }); rig.stream = null; }
+    if (rig.ctx && rig.ctx.state !== 'closed') { rig.ctx.close().catch(function () {}); }
+    rig.ctx = null; rig.analyser = null;
+    state.recording = false;
+    var b = $('#rec-btn'), s = $('#stop-btn');
+    if (b) { b.disabled = false; b.textContent = 'Record four seconds'; }
+    if (s) s.disabled = true;
+    var r = $('#rig'); if (r) r.classList.remove('live');
+    var idle = $('#scope-idle'); if (idle) idle.textContent = 'waiting for the microphone';
+  }
+
+  function drawScope() {
+    var c = $('#scope-canvas');
+    if (!c || !rig.analyser) return;
+    var g = c.getContext('2d');
+    var buf = new Uint8Array(rig.analyser.frequencyBinCount);
+    rig.analyser.getByteTimeDomainData(buf);
+    var w = c.width, h = c.height;
+    g.clearRect(0, 0, w, h);
+    var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#0f766e';
+    g.strokeStyle = accent;
+    g.lineWidth = 2;
+    g.beginPath();
+    for (var i = 0; i < buf.length; i++) {
+      var v = (buf[i] - 128) / 128;
+      var x = (i / (buf.length - 1)) * w;
+      var y = h / 2 + v * (h * 0.42);
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+    rig.raf = requestAnimationFrame(drawScope);
+  }
+
+  function decodeToMono(arrayBuffer) {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    var ac = new Ctx();
+    return ac.decodeAudioData(arrayBuffer).then(function (audio) {
+      var n = audio.length;
+      var out = new Float32Array(n);
+      for (var c = 0; c < audio.numberOfChannels; c++) {
+        var d = audio.getChannelData(c);
+        for (var i = 0; i < n; i++) out[i] += d[i] / audio.numberOfChannels;
+      }
+      var sr = audio.sampleRate;
+      if (ac.close) ac.close();
+      return { samples: out, sampleRate: sr };
+    }, function (err) {
+      if (ac.close) ac.close();
+      throw err;
+    });
+  }
+
+  function analyse(samples, sampleRate, opts) {
+    var res = E.extractFeatures(samples, sampleRate);
+    if (!res.ok) {
+      var msg = {
+        short: 'That was too short to read. About two seconds of speech is the floor; four is better.',
+        quiet: 'Almost nothing in that clip was speech. Try again, a little closer to the microphone.',
+        unvoiced: 'The audio was there but no voiced speech came out of it. Try a sentence rather than a hum or a whistle.',
+        empty: 'That file decoded to nothing.'
+      }[res.reason] || 'That sample could not be read.';
+      return { error: msg };
+    }
+    var verdict = E.classify(res.features);
+    verdict.features = res.features;
+    verdict.stats = { duration: res.duration, voicedFrames: res.voicedFrames, speechFrames: res.speechFrames, formantFrames: res.formantFrames };
+    verdict.demo = !!(opts && opts.demo);
+    return verdict;
+  }
+
+  function renderResult(v) {
+    if (v.error) { show('screen-home'); setErr($('#rec-err'), v.error); return; }
+    state.last = v;
+
+    $('#r-kicker').textContent = v.demo ? 'the guess · demo sample' : 'the guess';
+    var chip = $('#r-chip');
+    chip.className = 'chip ' + v.band.key;
+    chip.innerHTML = '';
+    var b = document.createElement('b');
+    b.textContent = v.band.label;
+    chip.appendChild(document.createTextNode('band · '));
+    chip.appendChild(b);
+    chip.appendChild(document.createTextNode(' · ' + (v.demo ? 'illustrative sample' : 'your sample')));
+
+    $('#r-name').textContent = v.accent.name;
+    $('#r-region').textContent = 'usually heard in ' + v.accent.region + '.';
+
+    var bars = $('#r-bars');
+    bars.innerHTML = '';
+    var cap = document.createElement('p');
+    cap.className = 'note';
+    cap.style.margin = '0 0 .2rem';
+    cap.textContent = 'also in the running — fit relative to the winner';
+    bars.appendChild(cap);
+    v.ranked.slice(1).forEach(function (r, i) {
+      var a = E.ACCENTS[r.id];
+      var wrap = document.createElement('div');
+      wrap.className = 'bar' + (i === 0 ? ' second' : ' third');
+      var lab = document.createElement('div');
+      lab.className = 'lab';
+      var nm = document.createElement('span');
+      nm.textContent = a.name;
+      var pct = document.createElement('span');
+      pct.textContent = r.pct + '%';
+      lab.appendChild(nm); lab.appendChild(pct);
+      var track = document.createElement('div');
+      track.className = 'track';
+      var fill = document.createElement('div');
+      fill.className = 'fill';
+      fill.style.width = Math.max(4, r.pct) + '%';
+      track.appendChild(fill);
+      wrap.appendChild(lab); wrap.appendChild(track);
+      bars.appendChild(wrap);
+    });
+
+    $('#r-bandnote').textContent = v.band.note;
+    $('#r-where').textContent = v.accent.where;
+    $('#r-confused').textContent = v.accent.confused;
+    $('#r-fact').textContent = v.accent.fact;
+    $('#r-learn-link').setAttribute('href', '#/learn/' + v.id);
+
+    var body = $('#r-meas-body');
+    body.innerHTML = '';
+    E.FEATURE_KEYS.forEach(function (k) {
+      var m = E.FEATURE_META[k];
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td');
+      td1.textContent = m.label;
+      var td2 = document.createElement('td');
+      var val = v.features[k];
+      var unmeasured = (k === 'f1' || k === 'f2') && v.stats && v.stats.formantFrames === 0;
+      td2.textContent = unmeasured ? 'not measurable'
+        : (m.log ? Math.round(val) : val.toFixed(2)) + (m.unit ? ' ' + m.unit : '');
+      tr.appendChild(td1); tr.appendChild(td2);
+      body.appendChild(tr);
+    });
+
+    show('screen-result');
+  }
+
+  function startRecording(errEl, onDone) {
+    setErr(errEl, '');
+    if (state.recording) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      setErr(errEl, 'This browser will not give a local page a microphone. Use the clip button instead — a file is decoded here, in the page.');
+      return;
+    }
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    }).then(function (stream) {
+      rig.stream = stream;
+      rig.ctx = new Ctx();
+      var src = rig.ctx.createMediaStreamSource(stream);
+      rig.analyser = rig.ctx.createAnalyser();
+      rig.analyser.fftSize = 2048;
+      src.connect(rig.analyser);
+
+      rig.chunks = [];
+      try { rig.mr = new MediaRecorder(stream); } catch (e) { rig.mr = null; }
+      if (!rig.mr) {
+        setErr(errEl, 'Recording is not available in this browser. Use the clip button instead.');
+        stopRig();
+        return;
+      }
+      rig.mr.ondataavailable = function (e) { if (e.data && e.data.size) rig.chunks.push(e.data); };
+      rig.mr.onstop = function () {
+        var blob = new Blob(rig.chunks, { type: rig.mr.mimeType || 'audio/webm' });
+        stopRig();
+        blob.arrayBuffer().then(function (buf) {
+          return decodeToMono(buf);
+        }).then(function (decoded) {
+          var out = analyse(decoded.samples, decoded.sampleRate, { demo: false });
+          decoded.samples = null; decoded = null;
+          onDone(out);
+        }).catch(function () {
+          setErr(errEl, 'The recording could not be decoded. Try the clip button instead.');
+        });
+      };
+
+      state.recording = true;
+      var r = $('#rig'); if (r) r.classList.add('live');
+      var idle = $('#scope-idle'); if (idle) idle.textContent = 'listening';
+      var rb = $('#rec-btn');
+      if (rb) { rb.disabled = true; rb.textContent = 'Recording…'; }
+      var sb = $('#stop-btn'); if (sb) sb.disabled = false;
+
+      rig.mr.start();
+      drawScope();
+      rig.timer = setTimeout(function () {
+        if (rig.mr && rig.mr.state !== 'inactive') rig.mr.stop();
+      }, 4200);
+    }).catch(function (err) {
+      stopRig();
+      var name = err && err.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        setErr(errEl, 'Microphone permission was refused, so nothing was recorded. Allow it and try again — or use a clip, which never asks.');
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setErr(errEl, 'No microphone was found. The clip button works without one.');
+      } else {
+        setErr(errEl, 'The microphone could not be opened. The clip button works without one.');
+      }
+    });
+  }
+
+  function handleFile(file, errEl) {
+    setErr(errEl, '');
+    if (!file) return;
+    file.arrayBuffer().then(function (buf) { return decodeToMono(buf); })
+      .then(function (decoded) {
+        var out = analyse(decoded.samples, decoded.sampleRate, { demo: false });
+        decoded.samples = null; decoded = null;
+        renderResult(out);
+      })
+      .catch(function () {
+        setErr(errEl, 'That file did not decode as audio. WAV, MP3, OGG and M4A all work in most browsers.');
+      });
+  }
+
+  $('#rec-btn').addEventListener('click', function () { startRecording($('#rec-err'), renderResult); });
+  $('#stop-btn').addEventListener('click', function () {
+    if (rig.mr && rig.mr.state !== 'inactive') rig.mr.stop();
+  });
+  $('#file-in').addEventListener('change', function (e) {
+    handleFile(e.target.files && e.target.files[0], $('#rec-err'));
+  });
+
+  /* --------------------------- challenge --------------------------- */
+  var KEY = 'accent-oracle:challenge';
+  var board = { rounds: 0, right: 0, oracle: 0, log: [] };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && typeof saved.rounds === 'number') board = saved;
+  } catch (e) {}
+
+  function paintBoard() {
+    $('#c-rounds').textContent = board.rounds;
+    $('#c-right').textContent = board.right;
+    $('#c-oracle').textContent = board.oracle;
+    var log = $('#c-log');
+    log.innerHTML = '';
+    board.log.slice(-6).reverse().forEach(function (row) {
+      var d = document.createElement('div');
+      d.className = 'row';
+      var t = document.createElement('span');
+      t.className = 't';
+      t.textContent = row.verdict;
+      var s = document.createElement('span');
+      s.textContent = row.text;
+      d.appendChild(t); d.appendChild(s);
+      log.appendChild(d);
+    });
+  }
+  function saveBoard() { try { localStorage.setItem(KEY, JSON.stringify(board)); } catch (e) {} }
+
+  (function fillTruth() {
+    var sel = $('#c-truth');
+    if (!sel) return;
+    Object.keys(E.ACCENTS).forEach(function (id) {
+      var o = document.createElement('option');
+      o.value = id;
+      o.textContent = E.ACCENTS[id].name;
+      sel.appendChild(o);
+    });
+  })();
+
+  var challenge = { guess: null };
+
+  $('#c-rec').addEventListener('click', function () {
+    startRecording($('#c-err'), function (v) {
+      if (v.error) { setErr($('#c-err'), v.error); return; }
+      challenge.guess = v;
+      $('#c-verdict').hidden = false;
+      $('#c-guess').textContent = v.accent.name + ' — ' + v.band.label;
+      $('#c-band').textContent = v.band.note;
+      $('#c-truth').value = v.id;
+    });
+  });
+  $('#c-file').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    f.arrayBuffer().then(function (buf) { return decodeToMono(buf); }).then(function (d) {
+      var v = analyse(d.samples, d.sampleRate, { demo: false });
+      d.samples = null;
+      if (v.error) { setErr($('#c-err'), v.error); return; }
+      challenge.guess = v;
+      $('#c-verdict').hidden = false;
+      $('#c-guess').textContent = v.accent.name + ' — ' + v.band.label;
+      $('#c-band').textContent = v.band.note;
+      $('#c-truth').value = v.id;
+    }).catch(function () { setErr($('#c-err'), 'That file did not decode as audio.'); });
+  });
+
+  function settle(truthId) {
+    var g = challenge.guess;
+    if (!g) return;
+    board.rounds++;
+    var oracleRight = (truthId === g.id);
+    if (oracleRight) board.oracle++;
+    else board.right++;
+    board.log.push({
+      verdict: oracleRight ? 'oracle' : 'room',
+      text: oracleRight
+        ? 'Oracle said ' + g.accent.name + ' and the room agreed.'
+        : 'Oracle said ' + g.accent.name + ', the room said ' + E.ACCENTS[truthId].name + '.'
+    });
+    if (board.log.length > 40) board.log = board.log.slice(-40);
+    saveBoard(); paintBoard();
+    challenge.guess = null;
+    $('#c-verdict').hidden = true;
+  }
+
+  $('#c-settle').addEventListener('click', function () { settle($('#c-truth').value); });
+  $('#c-skip').addEventListener('click', function () {
+    challenge.guess = null;
+    $('#c-verdict').hidden = true;
+    setErr($('#c-err'), '');
+  });
+  $('#c-reset').addEventListener('click', function () {
+    board = { rounds: 0, right: 0, oracle: 0, log: [] };
+    saveBoard(); paintBoard();
+  });
+
+  /* ----------------------------- router ----------------------------- */
+  function route() {
+    var h = (location.hash || '').replace(/^#\/?/, '');
+    var parts = h.split('/').filter(Boolean);
+
+    if (!parts.length) { show('screen-home'); return; }
+    if (parts[0] === 'about') { show('screen-about'); return; }
+    if (parts[0] === 'challenge') { paintBoard(); show('screen-challenge'); return; }
+    if (parts[0] === 'result') {
+      if (state.last) renderResult(state.last); else show('screen-home');
+      return;
+    }
+    if (parts[0] === 'learn' && parts[1] && E.ACCENTS[parts[1]]) {
+      var a = E.ACCENTS[parts[1]];
+      $('#l-name').textContent = a.name;
+      $('#l-region').textContent = 'usually heard in ' + a.region + '.';
+      $('#l-where').textContent = a.where;
+      $('#l-confused').textContent = a.confused;
+      $('#l-fact').textContent = a.fact;
+      show('screen-learn');
+      return;
+    }
+    if (parts[0] === 'demo' && parts[1]) {
+      var vec = E.demoVector(parts[1], 1);
+      var v = E.classify(vec);
+      v.features = vec;
+      v.demo = true;
+      v.stats = { duration: 4.2, voicedFrames: 0, speechFrames: 0 };
+      renderResult(v);
+      return;
+    }
+    show('screen-home');
+  }
+
+  window.addEventListener('hashchange', route);
+  $('#eng-ver').textContent = E.VERSION;
+  paintBoard();
+  route();
+})();
+</script>
+</body>
+</html>
