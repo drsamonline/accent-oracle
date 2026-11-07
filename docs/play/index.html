@@ -1116,6 +1116,40 @@
     el.hidden = false; el.textContent = msg;
   }
 
+  /* Safari's vocabulary for a paused audio engine: 'suspended' before a gesture,
+     and 'interrupted' when the phone takes the audio away mid-session. Both need
+     an explicit resume, and both otherwise hand back a silent graph instead of
+     an error — which lands the user on "almost nothing in that clip was speech"
+     and reads as a microphone fault. (Pattern from musicgen's player.js.) */
+  function unlockAudio(ctx) {
+    if (!ctx) return Promise.resolve('closed');
+    if (ctx.state === 'running') return Promise.resolve('running');
+    var tries = 0;
+    function attempt() {
+      return ctx.resume().then(function () {
+        if (ctx.state === 'running' || tries++ > 2) return ctx.state;
+        return new Promise(function (r) { setTimeout(r, 60); }).then(attempt);
+      }).catch(function () { return ctx.state; });
+    }
+    return attempt();
+  }
+
+  /* One line a person can act on, and a level — musicgen's verdict() shape. */
+  function audioVerdict(state) {
+    if (state === 'closed') {
+      return { level: 'bad', line: 'The audio engine was already closed. Reload the page, then press Record again.' };
+    }
+    if (state === 'suspended' || state === 'interrupted') {
+      return { level: 'warn', line: 'The browser paused its audio engine — on a phone that usually means a call or another app took the audio. Close it, then press Record again.' };
+    }
+    return { level: 'warn', line: 'The audio engine reported "' + state + '", so nothing was recorded. Press Record again.' };
+  }
+
+  /* Haptics on Android; silence everywhere else. */
+  function tick(ms) {
+    try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) {}
+  }
+
   function stopRig() {
     if (rig.raf) { cancelAnimationFrame(rig.raf); rig.raf = 0; }
     if (rig.timer) { clearTimeout(rig.timer); rig.timer = 0; }
@@ -1271,9 +1305,17 @@
     var Ctx = window.AudioContext || window.webkitAudioContext;
     navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-    }).then(function (stream) {
+    }).then(async function (stream) {
       rig.stream = stream;
       rig.ctx = new Ctx();
+
+      var state = await unlockAudio(rig.ctx);
+      if (state !== 'running') {
+        stopRig();
+        setErr(errEl, audioVerdict(state).line);
+        return;
+      }
+
       var src = rig.ctx.createMediaStreamSource(stream);
       rig.analyser = rig.ctx.createAnalyser();
       rig.analyser.fftSize = 2048;
@@ -1289,6 +1331,7 @@
       rig.mr.ondataavailable = function (e) { if (e.data && e.data.size) rig.chunks.push(e.data); };
       rig.mr.onstop = function () {
         var blob = new Blob(rig.chunks, { type: rig.mr.mimeType || 'audio/webm' });
+        tick(6);
         stopRig();
         blob.arrayBuffer().then(function (buf) {
           return decodeToMono(buf);
@@ -1309,6 +1352,7 @@
       var sb = $('#stop-btn'); if (sb) sb.disabled = false;
 
       rig.mr.start();
+      tick(10);
       drawScope();
       rig.timer = setTimeout(function () {
         if (rig.mr && rig.mr.state !== 'inactive') rig.mr.stop();

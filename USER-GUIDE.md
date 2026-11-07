@@ -63,6 +63,7 @@ The first time you press record, the browser asks. Choose **Allow**.
 | "Microphone permission was refused, so nothing was recorded." | You pressed Block, or a previous Block was remembered | Click the padlock / microphone icon in the address bar → allow → reload the page |
 | "No microphone was found." | No input device, or it is unplugged / disabled | Plug one in, or use **Use a clip instead** |
 | "This browser will not give a local page a microphone." | You are on `file://` or an old browser | Use `http://localhost` or the live site, or use a clip |
+| "The browser paused its audio engine…" | On a phone, a call or another app took the audio; Safari calls this state `interrupted` | Close the other app (or end the call) and press record again — no reload needed |
 | Nothing happens at all | The page is in a background tab | Bring it to the front and press record again |
 
 If none of that works, **Use a clip instead** needs no permission at all.
@@ -81,7 +82,8 @@ If none of that works, **Use a clip instead** needs no permission at all.
 4. Read the sentence at a normal pace, about a hand-span from the microphone. Do not
    shout; a normal speaking voice is what it is built for.
 5. It stops by itself at about four seconds. If you finish early, press **Stop early** —
-   anything over about two seconds is enough.
+   anything over about two seconds is enough. On a phone it gives a short vibration at the
+   start and the end of the recording, so you can tell it is listening without looking.
 6. The result screen appears.
 
 **Tips that actually change the answer:** read the whole sentence rather than one word;

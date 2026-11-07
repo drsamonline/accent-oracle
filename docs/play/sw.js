@@ -9,13 +9,14 @@
  */
 'use strict';
 
-var CACHE = 'accent-oracle-2026-11-07a';
+var CACHE = 'accent-oracle-2026-11-07b';
 var SHELL = [
   './',
   './index.html',
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
+  './icon-maskable-512.png',
   './manifest.webmanifest',
   '../assets/upi-qr.svg',
   '../assets/support-portrait.jpg'
