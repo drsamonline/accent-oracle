@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: file:; media-src 'self' file: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: file:; media-src 'self' file: blob:; worker-src 'self'; manifest-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Accent Oracle — a game about how you sound</title>
 <meta name="description" content="Speak for four seconds and it guesses which accent it heard, with a band on how sure it is. Offline, on device, no account. A game, not a judgment.">
 <meta name="theme-color" content="#edf1f3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08131a" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
 <script>
   (function () {
     try {
@@ -126,6 +127,8 @@
   footer{border-top:1px solid var(--line);padding:1.4rem 0 3rem;color:var(--muted);font-size:.82rem}
   footer a{color:var(--muted)}
   .stamp{font-family:var(--mono);font-size:.72rem;opacity:.75;margin:.4rem 0 0}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+           clip:rect(0 0 0 0);white-space:nowrap;border:0}
   @media (max-width:600px){
     header .wrap{flex-wrap:wrap;row-gap:.55rem;padding-bottom:.5rem}
     .brand{flex:1 0 100%}
@@ -162,6 +165,8 @@
             aria-haspopup="dialog" aria-controls="support-dialog">Support</button>
   </div>
 </div></header>
+
+<p class="sr-only" role="status" aria-live="polite" id="live"></p>
 
 <main><div class="wrap">
 
@@ -325,7 +330,10 @@
       they are compared against are hand-set starting values, not values measured from a
       labelled corpus. The repository says exactly what that means and what it would take to
       fix it.</p>
-    <div class="actions"><a class="btn primary" href="#/">Back to the oracle</a></div>
+    <div class="actions">
+      <a class="btn primary" href="#/">Back to the oracle</a>
+      <a class="btn" href="https://github.com/drsamonline/accent-oracle/blob/main/USER-GUIDE.md">The full user guide</a>
+    </div>
   </section>
 
 </div></main>
@@ -491,7 +499,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
 
   /* ---------------------------------------------------------------- */
   /* What gets measured. `scale` is the spread that counts as one unit */
@@ -776,6 +784,76 @@
     return { f1: f1, f2: f2 };
   }
 
+  /* Syllable onsets by positive spectral flux — the method dance-fight uses to
+     find beats, pointed at the speech band instead. Flux marks the moment energy
+     arrives, which is what a syllable boundary is; an envelope peak marks the
+     loudest point, which drifts with the vowel and with the microphone. The
+     threshold is median + k*MAD, not mean + k*SD, because the onset spikes
+     themselves inflate a mean and a standard deviation enough to hide the
+     quieter onsets. */
+  function countOnsets(x, sr, loHz, hiHz) {
+    /* A 64 ms window, not 32: a short window slides its own phase against the
+       pitch period and the resulting ripple reads as an onset every few hops. */
+    var win = 1024, hop = Math.round(sr * 0.01);
+    if (x.length < win * 4) return { onsets: 0, seconds: 0 };
+    var nHops = Math.floor((x.length - win) / hop) + 1;
+    var bins = win >> 1;
+    var lo = Math.max(1, Math.ceil(loHz * win / sr));
+    var hi = Math.min(bins - 1, Math.floor(hiHz * win / sr));
+    var prev = new Float64Array(bins);
+    var flux = new Float64Array(nHops);
+    var re = new Float64Array(win), im = new Float64Array(win);
+    var h, i, off, f;
+
+    for (h = 0; h < nHops; h++) {
+      off = h * hop;
+      for (i = 0; i < win; i++) {
+        re[i] = x[off + i] * (0.54 - 0.46 * Math.cos(2 * Math.PI * i / (win - 1)));
+        im[i] = 0;
+      }
+      fft(re, im, false);
+      f = 0;
+      for (i = lo; i <= hi; i++) {
+        var mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
+        var d = mag - prev[i];
+        if (d > 0) f += d;
+        prev[i] = mag;
+      }
+      flux[h] = f;
+    }
+
+    /* Smooth over five hops before thresholding — the last of the pitch-period
+       ripple, and cheap to remove. */
+    var sm = new Float64Array(nHops);
+    for (h = 0; h < nHops; h++) {
+      var acc = 0, cnt = 0;
+      for (i = Math.max(0, h - 2); i <= Math.min(nHops - 1, h + 2); i++) { acc += flux[i]; cnt++; }
+      sm[h] = acc / cnt;
+    }
+
+    var med = median(Array.prototype.slice.call(sm, 1));
+    var devs = [];
+    for (i = 1; i < nHops; i++) devs.push(Math.abs(sm[i] - med));
+    var mad = median(devs) || 1e-9;
+    var maxFlux = 0;
+    for (i = 1; i < nHops; i++) if (sm[i] > maxFlux) maxFlux = sm[i];
+    /* The floor matters: on a sustained vowel median and MAD both collapse to
+       nothing, and a bare median+2.5*MAD threshold then counts noise as syllables. */
+    var thr = Math.max(med + 3.5 * mad, maxFlux * 0.04);
+
+    var minGap = Math.max(2, Math.round(0.12 / 0.01));
+    var onsets = 0, k = 1;
+    while (k < nHops - 1) {
+      if (sm[k] > thr) {
+        var jEnd = Math.min(nHops - 1, k + minGap), bj = k, bv = sm[k];
+        for (var j = k + 1; j <= jEnd; j++) if (sm[j] > bv) { bv = sm[j]; bj = j; }
+        onsets++;
+        k = bj + minGap;
+      } else { k++; }
+    }
+    return { onsets: onsets, seconds: nHops * hop / sr };
+  }
+
   /* --------------------------- the measurement --------------------------- */
 
   function extractFeatures(samples, sampleRate) {
@@ -830,24 +908,10 @@
     var semis = pitches.map(function (p) { return 12 * Math.log(p / f0med) / Math.LN2; });
     var f0sd = std(semis, 0);
 
-    /* Syllable nuclei: peaks in a smoothed energy envelope, 140 ms apart at least.
-       The smoothing matters — raw frame energy ripples at the pulse rate and turns
-       one syllable into four. */
-    var sm = new Float32Array(n);
-    for (i = 0; i < n; i++) {
-      var acc = 0, cnt = 0;
-      for (j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { acc += rms[j]; cnt++; }
-      sm[i] = acc / cnt;
-    }
-    var minGap = Math.max(2, Math.round(0.14 * sr / hop));
-    var nuclei = 0, lastPeak = -999;
-    for (i = 1; i < n - 1; i++) {
-      if (sm[i] > thr * 1.15 && sm[i] >= sm[i - 1] && sm[i] > sm[i + 1] && (i - lastPeak) >= minGap) {
-        nuclei++; lastPeak = i;
-      }
-    }
+    /* Syllable rate: onsets per second of speech, from spectral flux. */
+    var onsetInfo = countOnsets(x, sr, 200, 4000);
     var speechSeconds = speech.length * hop / sr;
-    var sylRate = speechSeconds > 0 ? nuclei / speechSeconds : 0;
+    var sylRate = speechSeconds > 0 ? onsetInfo.onsets / speechSeconds : 0;
     sylRate = Math.max(1, Math.min(9, sylRate));
 
     var pctV = pitches.length / speech.length;
@@ -1030,6 +1094,13 @@
     });
   })();
 
+  function announce(msg) {
+    var el = $('#live');
+    if (!el) return;
+    el.textContent = '';
+    setTimeout(function () { el.textContent = msg; }, 60);
+  }
+
   /* ---------------------------- screens ---------------------------- */
   function show(id) {
     $$('.screen').forEach(function (s) { s.hidden = (s.id !== id); });
@@ -1186,6 +1257,7 @@
       body.appendChild(tr);
     });
 
+    announce('Result: ' + v.accent.name + ', band ' + v.band.label + '.');
     show('screen-result');
   }
 
@@ -1404,6 +1476,15 @@
       return;
     }
     show('screen-home');
+  }
+
+  /* Offline reloads. The page is one file and works from disk, but a page served
+     over the network still needs the network once — the worker makes the second
+     visit work with the radio off. It is an enhancement, never a requirement. */
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
   }
 
   window.addEventListener('hashchange', route);

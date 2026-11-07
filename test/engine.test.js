@@ -130,6 +130,15 @@ test('syllable rate follows the gating', () => {
     'syllable rate was ' + r.features.sylRate.toFixed(2) + ', expected ~5');
 });
 
+test('a sustained vowel does not invent syllables', () => {
+  // One continuous vowel: flux is flat after the first frame, so the onset
+  // counter must not turn pitch-period ripple into a stream of syllables.
+  const r = E.extractFeatures(synth({ f0: 130, syllable: 3, gap: 0 }), 16000);
+  assert(r.ok, 'extraction failed: ' + r.reason);
+  assert(r.features.sylRate < 2.5,
+    'a steady vowel reported ' + r.features.sylRate.toFixed(2) + ' syllables/second');
+});
+
 test('voiced share is a share', () => {
   const r = E.extractFeatures(synth({ f0: 130 }), 16000);
   assert(r.ok);

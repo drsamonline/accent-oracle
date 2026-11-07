@@ -2,7 +2,7 @@
 
 <p>
   <a href="https://drsamonline.github.io/accent-oracle/"><img alt="live: online" src="docs/assets/badge-live.svg"></a>
-  <a href="https://github.com/drsamonline/accent-oracle/actions/workflows/test.yml"><img alt="tests: 22 passing" src="docs/assets/badge-tests.svg"></a>
+  <a href="https://github.com/drsamonline/accent-oracle/actions/workflows/test.yml"><img alt="tests: 23 passing" src="docs/assets/badge-tests.svg"></a>
   <img alt="build: green" src="docs/assets/badge-build.svg">
   <a href="LICENSE"><img alt="licence: PolyForm NC 1.0.0" src="docs/assets/badge-licence.svg"></a>
   <img alt="offline: no network" src="docs/assets/badge-offline.svg">
@@ -11,7 +11,7 @@
 
 **It listens to four seconds of speech and guesses which accent it heard — on device, with a band on how sure it is.**
 
-**[Open the app →](https://drsamonline.github.io/accent-oracle/play/)** · [Landing page](https://drsamonline.github.io/accent-oracle/) · [The rule](#the-rule) · [Support](#support)
+**[Open the app →](https://drsamonline.github.io/accent-oracle/play/)** · [Landing page](https://drsamonline.github.io/accent-oracle/) · [User guide](USER-GUIDE.md) · [The rule](#the-rule) · [Support](#support)
 
 <!-- shot:start -->
 
@@ -22,7 +22,9 @@
 One HTML file, no build step, no dependencies, no model download — which is also why it works
 with the network switched off. The page carries a `Content-Security-Policy` with
 `connect-src 'none'`, so a fetch or a WebSocket is refused by the browser itself rather than by
-a promise in the footer. The recording is decoded into eight numbers and dropped.
+a promise in the footer. The recording is decoded into eight numbers and dropped. A service
+worker makes the second visit work with the radio off, and the app installs to a home screen
+like any other app.
 
 ## What it does
 
@@ -37,7 +39,7 @@ twelve accent profiles, and the result carries a band rather than a percentage o
 | measurements per sample | **8** |
 | runtime dependencies | **0** |
 | network requests at runtime | **0** |
-| engine tests | **22** |
+| engine tests | **23** |
 
 The result screen names an accent and the region that accent is usually heard in, shows the
 runners-up, and hands you a card: where it is heard, what it is commonly confused with, and one
@@ -70,9 +72,13 @@ than a disclaimer in a footer.
 ## Run it
 
 ```bash
-node test/engine.test.js      # 22 passing, 0 failing
+node test/engine.test.js      # 23 passing, 0 failing
 python3 -m http.server 8000   # then open http://localhost:8000/docs/play/
 ```
+
+Every feature, step by step, is in **[USER-GUIDE.md](USER-GUIDE.md)** — recording, clips,
+reading the band, challenge mode, installing, microphone troubleshooting, and the release
+checklist.
 
 The app is a single file, so `docs/play/index.html` also opens directly from disk. A microphone
 needs a secure context, so `http://localhost` works and `file://` may not — the clip button
@@ -88,8 +94,11 @@ page is the product on all three.
 ```
 docs/index.html            the landing page
 docs/play/index.html       the app — engine, interface, cards, support panel
+docs/play/sw.js            the offline shell; bump CACHE on every release
+docs/play/manifest.webmanifest   installable, with the icons beside it
 docs/play/icon.svg         the mark
 docs/assets/               screenshots, generated badges, the UPI QR, the portrait
+USER-GUIDE.md              every feature, step by step, and the release checklist
 ACCENTS.md                 the closed set of twelve, the card copy, the calibration path
 SPEC.md                    where this came from and what it must not do
 test/engine.test.js        the engine, lifted out of the page and run in Node
