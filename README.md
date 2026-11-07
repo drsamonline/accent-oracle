@@ -1,23 +1,50 @@
-# Accent Oracle
+<p align="center">
+  <img src="docs/play/icon.svg" width="92" height="92" alt="Accent Oracle">
+</p>
 
-<p>
+<h1 align="center">Accent Oracle</h1>
+
+<p align="center"><em>It listens to four seconds of speech and guesses which accent it heard —<br>on device, with a band on how sure it is.</em></p>
+
+<p align="center">
   <a href="https://drsamonline.github.io/accent-oracle/"><img alt="live: online" src="docs/assets/badge-live.svg"></a>
   <a href="https://github.com/drsamonline/accent-oracle/actions/workflows/test.yml"><img alt="tests: 23 passing" src="docs/assets/badge-tests.svg"></a>
-  <img alt="build: green" src="docs/assets/badge-build.svg">
+  <a href="https://github.com/drsamonline/accent-oracle/actions/workflows/presentation.yml"><img alt="build: green" src="docs/assets/badge-build.svg"></a>
   <a href="LICENSE"><img alt="licence: PolyForm NC 1.0.0" src="docs/assets/badge-licence.svg"></a>
+</p>
+
+<p align="center">
+  <img alt="engine: 1.1.0" src="docs/assets/badge-engine.svg">
+  <img alt="accents: 12" src="docs/assets/badge-accents.svg">
   <img alt="offline: no network" src="docs/assets/badge-offline.svg">
   <img alt="deps: 0 runtime" src="docs/assets/badge-deps.svg">
 </p>
 
-**It listens to four seconds of speech and guesses which accent it heard — on device, with a band on how sure it is.**
-
-**[Open the app →](https://drsamonline.github.io/accent-oracle/play/)** · [Landing page](https://drsamonline.github.io/accent-oracle/) · [User guide](USER-GUIDE.md) · [The rule](#the-rule) · [Support](#support)
+<p align="center">
+  <a href="https://drsamonline.github.io/accent-oracle/play/"><b>Open the app →</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://drsamonline.github.io/accent-oracle/">Landing page</a>
+  &nbsp;·&nbsp;
+  <a href="USER-GUIDE.md">User guide</a>
+  &nbsp;·&nbsp;
+  <a href="ACCENTS.md">The twelve</a>
+  &nbsp;·&nbsp;
+  <a href="#the-rule">The rule</a>
+  &nbsp;·&nbsp;
+  <a href="#support">Support</a>
+</p>
 
 <!-- shot:start -->
 
-![The Accent Oracle showing a guess](docs/assets/app-desktop.png)
+<p align="center">
+  <img src="docs/assets/app-desktop.png" width="900" alt="The Accent Oracle showing a guess: Southern US English, band clear enough, with the runners-up and the accent card.">
+</p>
 
 <!-- shot:end -->
+
+<p align="center"><sub>the oracle, having just heard four seconds of someone reading a sentence</sub></p>
+
+---
 
 One HTML file, no build step, no dependencies, no model download — which is also why it works
 with the network switched off. The page carries a `Content-Security-Policy` with
@@ -30,8 +57,8 @@ like any other app.
 
 It measures, then compares. Pitch is found by autocorrelation, the first two formants by
 cepstral smoothing of the spectrum, syllable onsets by positive spectral flux, and the vowel
-space by the spread of formant values in Bark. Those eight numbers are scored against
-twelve accent profiles, and the result carries a band rather than a percentage of certainty.
+space by the spread of formant values in Bark. Those eight numbers are scored against twelve
+accent profiles, and the result carries a band rather than a percentage of certainty.
 
 | | |
 |---|---|
@@ -45,6 +72,18 @@ The result screen names an accent and the region that accent is usually heard in
 runners-up, and hands you a card: where it is heard, what it is commonly confused with, and one
 thing worth knowing. There is a challenge mode where the room records a round, the oracle
 guesses out loud, and the room settles the score.
+
+### The four bands
+
+The band is the most important thing on the screen, and two of the four are the app declining
+to answer.
+
+| Band | Meaning |
+|---|---|
+| **clear enough** | one profile fits noticeably better than the next — the best case this app offers |
+| **narrow-ish** | two profiles are close; the winner is a coin that landed your way |
+| **too close to call** | the top profiles are effectively tied, and it says so instead of picking |
+| **wide open** | nothing in the set fits this sample well |
 
 ### The honest caveat
 
@@ -92,18 +131,28 @@ page is the product on all three.
 ## Layout
 
 ```
-docs/index.html            the landing page
-docs/play/index.html       the app — engine, interface, cards, support panel
-docs/play/sw.js            the offline shell; bump CACHE on every release
+docs/index.html                  the landing page
+docs/play/index.html             the app — engine, interface, cards, support panel
+docs/play/sw.js                  the offline shell; bump CACHE on every release
 docs/play/manifest.webmanifest   installable, with the icons beside it
-docs/play/icon.svg         the mark
-docs/assets/               screenshots, generated badges, the UPI QR, the portrait
-USER-GUIDE.md              every feature, step by step, and the release checklist
-ACCENTS.md                 the closed set of twelve, the card copy, the calibration path
-SPEC.md                    where this came from and what it must not do
-test/engine.test.js        the engine, lifted out of the page and run in Node
-tools/                     the estate's presentation checks
+docs/play/icon.svg               the mark
+docs/assets/                     screenshots, generated badges, the UPI QR, the portrait
+USER-GUIDE.md                    every feature, step by step, and the release checklist
+ACCENTS.md                       the closed set of twelve, the card copy, the calibration path
+SPEC.md                          where this came from and what it must not do
+test/engine.test.js              the engine, lifted out of the page and run in Node
+tools/                           the estate's presentation checks
 ```
+
+## Built with
+
+Vanilla JavaScript and the Web Audio API. No framework, no bundler, no package manager, no
+build step — `docs/play/index.html` is the source and the artefact.
+
+The engine does its own maths: a radix-2 FFT, cepstral liftering for the formants, normalised
+autocorrelation for the pitch, spectral flux for syllable onsets, and a Bark-scale vowel space.
+The tests lift that block out of the HTML and run it in Node against synthesised voices with
+known pitch, formants and syllable gating.
 
 ## Support
 
