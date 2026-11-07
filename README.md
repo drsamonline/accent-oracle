@@ -29,8 +29,8 @@ like any other app.
 ## What it does
 
 It measures, then compares. Pitch is found by autocorrelation, the first two formants by
-cepstral smoothing of the spectrum, syllables by peaks in a smoothed energy envelope, and the
-vowel space by the spread of formant values in Bark. Those eight numbers are scored against
+cepstral smoothing of the spectrum, syllable onsets by positive spectral flux, and the vowel
+space by the spread of formant values in Bark. Those eight numbers are scored against
 twelve accent profiles, and the result carries a band rather than a percentage of certainty.
 
 | | |
