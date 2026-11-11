@@ -36,9 +36,7 @@
 
 <!-- shot:start -->
 
-<p align="center">
-  <img src="docs/assets/app-desktop.png" width="900" alt="The Accent Oracle showing a guess: Southern US English, band clear enough, with the runners-up and the accent card.">
-</p>
+![Screenshot](docs/shot.png)
 
 <!-- shot:end -->
 
